@@ -115,13 +115,15 @@ function viewHome() {
     </a>` : '';
 
   const next = nextWorkout();
+  const today = new Date().toDateString();
+  const doneToday = new Set(S().history.filter(h => new Date(h.end).toDateString() === today).map(h => h.workoutId));
   const list = workouts.length ? `<div data-sortable="workouts">` + workouts.map(w => `
     <div class="card workout ${next?.id === w.id ? 'next' : ''}" style="--c:${esc(w.color)}" data-sort-id="${w.id}">
       <span class="handle" data-drag aria-label="Arrastar para reordenar">⠿</span>
       <a class="workout-main" href="#/treino/${w.id}">
         ${badge(w, 'lg')}
         <div class="grow">
-          ${next?.id === w.id ? '<span class="next-tag">👉 Próximo treino</span>' : ''}
+          ${doneToday.has(w.id) ? '<span class="done-tag">✅ Feito hoje</span>' : next?.id === w.id ? '<span class="next-tag">👉 Próximo treino</span>' : ''}
           <h3>${esc(w.name)}</h3>
           <small>${w.items.length} exercício${w.items.length === 1 ? '' : 's'}${w.groups?.length ? ' · ' + w.groups.map(groupName).join(', ') : ''}</small>
         </div>
@@ -828,6 +830,7 @@ function viewSession(id) {
         </div>
         <div class="sets">${Array.from({ length: it.sets }, (_, s) => `
           <button class="set ${checks[s] ? 'on' : ''}" data-act="check" data-id="${it.id}" data-s="${s}">${checks[s] ? '✓' : s + 1}</button>`).join('')}
+          <button class="set-all ${complete ? 'on' : ''}" data-act="check-all" data-id="${it.id}">${complete ? '↩ Desmarcar' : '✓ Fiz tudo'}</button>
         </div>
       </div>`;
   }).join('');
@@ -907,12 +910,30 @@ function renderRest() {
   bar.querySelector('.rest-fill').style.width = `${100 - (left / rest.total) * 100}%`;
 }
 
-function finishWorkout() {
+function sessionProgress() {
   const ses = S().session;
-  const w = findWorkout(ses.workoutId);
+  const w = ses && findWorkout(ses.workoutId);
+  if (!w) return { done: 0, total: 0 };
   const total = w.items.reduce((a, i) => a + i.sets, 0);
-  const done = w.items.reduce((a, i) => a + (ses.checks[i.id] || []).filter(Boolean).length, 0);
-  if (done < total && !confirm(`Você fez ${done} de ${total} séries. Finalizar mesmo assim?`)) return;
+  const done = w.items.reduce((a, i) => a + Math.min(i.sets, (ses.checks[i.id] || []).filter(Boolean).length), 0);
+  return { done, total };
+}
+
+// marcou a última série: conclui o treino sozinho
+function autoFinishIfDone() {
+  const { done, total } = sessionProgress();
+  if (!total || done < total) return false;
+  render();
+  setTimeout(() => finishWorkout(true), 450);
+  return true;
+}
+
+function finishWorkout(auto = false) {
+  const ses = S().session;
+  if (!ses) return;
+  const w = findWorkout(ses.workoutId);
+  const { done, total } = sessionProgress();
+  if (!auto && done < total && !confirm(`Você fez ${done} de ${total} séries. Finalizar mesmo assim?`)) return;
   update(st => {
     const wk = st.workouts.find(x => x.id === w.id);
     wk.items.forEach(it => { if (ses.loads[it.id] !== undefined) it.load = ses.loads[it.id]; });
@@ -920,8 +941,18 @@ function finishWorkout() {
     st.session = null;
   });
   rest = null; stopSessionUi(); renderRest();
-  toast('Treino concluído! 🔥');
-  go('#/historico');
+  go('#/');
+  const next = nextWorkout();
+  const mins = Math.round((Date.now() - ses.start) / 60000);
+  navigator.vibrate?.([80, 60, 80, 60, 200]);
+  sheet(`
+    <div class="done-sheet">
+      <div class="big">🎉</div>
+      <h2>Treino ${esc(w.letter)} concluído!</h2>
+      <p class="hint">${done} de ${total} séries · ${mins} min</p>
+      ${next && next.id !== w.id ? `<div class="card next-card">${badge(next, 'lg')}<div><small>Próximo treino</small><h3>${esc(next.name)}</h3></div></div>` : ''}
+      <div class="stack"><button class="btn primary" data-close>Show! 💪</button><a class="btn" href="#/historico" data-close>Ver histórico</a></div>
+    </div>`);
 }
 
 // ============ histórico / config ============
@@ -1189,8 +1220,23 @@ const actions = {
       nowOn = arr[s];
       item = st.workouts.find(w => w.id === st.session.workoutId).items.find(i => i.id === id);
     });
-    if (nowOn && item?.rest > 0) rest = { end: Date.now() + item.rest * 1000, total: item.rest };
     navigator.vibrate?.(30);
+    if (nowOn && autoFinishIfDone()) return;
+    if (nowOn && item?.rest > 0) rest = { end: Date.now() + item.rest * 1000, total: item.rest };
+    render();
+  },
+  'check-all': (el) => {
+    const id = el.dataset.id;
+    let nowOn = false;
+    update(st => {
+      const item = st.workouts.find(w => w.id === st.session.workoutId).items.find(i => i.id === id);
+      const arr = st.session.checks[id] || [];
+      const all = arr.filter(Boolean).length >= item.sets;
+      nowOn = !all;
+      st.session.checks[id] = Array.from({ length: item.sets }, () => nowOn);
+    });
+    navigator.vibrate?.(30);
+    if (nowOn && autoFinishIfDone()) return;
     render();
   },
   'rest-add': () => { if (rest) { rest.end += 15000; rest.total += 15; renderRest(); } },

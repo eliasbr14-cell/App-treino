@@ -251,3 +251,11 @@ body:has(.drag-ghost) { user-select: none; -webkit-user-select: none; }
 .hero p { color: var(--muted); }
 .banner-inline { background: color-mix(in srgb, var(--accent) 15%, var(--card)); border: 1px solid var(--accent); color: var(--text) !important; padding: 10px 12px; border-radius: 12px; }
 .btn.whatsapp { background: #25d366; border-color: #25d366; color: #052e16; }
+
+.set-all { height: 48px; padding: 0 14px; border-radius: 999px; border: 2px dashed var(--line); background: none; font-weight: 600; color: var(--muted); }
+.set-all.on { border-style: solid; }
+.done-tag { font-size: .72rem; color: var(--muted); font-weight: 700; display: block; }
+.done-sheet { text-align: center; }
+.done-sheet .big { font-size: 3.5rem; }
+.next-card { display: flex; align-items: center; gap: 14px; text-align: left; margin-top: 16px; border-color: var(--accent); }
+.next-card small { color: var(--accent); font-weight: 700; }
