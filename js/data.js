@@ -1,0 +1,145 @@
+// Biblioteca base de exercícios e métodos de treino.
+// Cada exercício: id, nome, grupo, equipamento e dicas rápidas de execução.
+
+export const GROUPS = [
+  { id: 'peito', name: 'Peito', emoji: '🫁' },
+  { id: 'costas', name: 'Costas', emoji: '🔙' },
+  { id: 'ombros', name: 'Ombros', emoji: '🏔️' },
+  { id: 'biceps', name: 'Bíceps', emoji: '💪' },
+  { id: 'triceps', name: 'Tríceps', emoji: '🦾' },
+  { id: 'quadriceps', name: 'Quadríceps', emoji: '🦵' },
+  { id: 'posterior', name: 'Posterior', emoji: '🦿' },
+  { id: 'gluteos', name: 'Glúteos', emoji: '🍑' },
+  { id: 'panturrilha', name: 'Panturrilha', emoji: '🦶' },
+  { id: 'abdomen', name: 'Abdômen', emoji: '🧱' },
+  { id: 'cardio', name: 'Cardio', emoji: '🏃' },
+];
+
+const ex = (id, name, group, equipment, tips) => ({ id, name, group, equipment, tips });
+
+export const EXERCISES = [
+  // Peito
+  ex('supino-reto-barra', 'Supino reto com barra', 'peito', 'Banco reto + barra', 'Escápulas encaixadas, pés firmes no chão. Desça a barra até a linha do mamilo e empurre sem tirar o quadril do banco.'),
+  ex('supino-inclinado-halter', 'Supino inclinado com halteres', 'peito', 'Banco inclinado (30–45°) + halteres', 'Cotovelos a ~45° do tronco. Desça controlando até alongar o peitoral e suba unindo os halteres por cima.'),
+  ex('supino-declinado', 'Supino declinado', 'peito', 'Banco declinado + barra', 'Prenda bem as pernas. Desça a barra na parte baixa do peito, sempre com controle.'),
+  ex('supino-maquina', 'Supino na máquina (chest press)', 'peito', 'Máquina de supino sentado', 'Ajuste o banco para a pegada ficar na altura do meio do peito. Empurre sem travar os cotovelos.'),
+  ex('crucifixo-halter', 'Crucifixo com halteres', 'peito', 'Banco reto + halteres', 'Cotovelos levemente flexionados o tempo todo. Abra em arco até sentir o alongamento e feche “abraçando”.'),
+  ex('peck-deck', 'Peck deck (voador)', 'peito', 'Máquina voador', 'Costas coladas no encosto, braços na altura dos ombros. Junte as mãos à frente e volte devagar.'),
+  ex('crossover', 'Crossover na polia', 'peito', 'Polia dupla (crossover)', 'Passo à frente, tronco levemente inclinado. Traga as mãos para baixo e ao centro, contraindo o peito.'),
+  ex('flexao', 'Flexão de braço', 'peito', 'Peso corporal', 'Corpo alinhado da cabeça ao calcanhar. Desça até o peito quase tocar o chão.'),
+  ex('paralelas-peito', 'Paralelas (foco peito)', 'peito', 'Barras paralelas', 'Incline o tronco à frente e desça até os ombros ficarem na linha dos cotovelos.'),
+
+  // Costas
+  ex('puxada-frente', 'Puxada frontal (pulley)', 'costas', 'Polia alta (pulldown)', 'Peito aberto, puxe a barra até a parte de cima do peito levando os cotovelos para baixo e para trás.'),
+  ex('puxada-triangulo', 'Puxada com triângulo', 'costas', 'Polia alta + triângulo', 'Tronco levemente inclinado para trás, puxe até o peito e segure 1s na contração.'),
+  ex('remada-curvada', 'Remada curvada com barra', 'costas', 'Barra livre', 'Tronco inclinado ~45°, coluna neutra. Puxe a barra até o umbigo e controle a descida.'),
+  ex('remada-baixa', 'Remada baixa (sentada)', 'costas', 'Polia baixa + triângulo', 'Coluna ereta, puxe o triângulo até o abdômen juntando as escápulas.'),
+  ex('remada-unilateral', 'Remada unilateral com halter (serrote)', 'costas', 'Banco + halter', 'Apoie mão e joelho no banco. Puxe o halter em direção ao quadril.'),
+  ex('remada-maquina', 'Remada na máquina articulada', 'costas', 'Máquina de remada', 'Peito apoiado, puxe as alavancas levando os cotovelos para trás.'),
+  ex('barra-fixa', 'Barra fixa', 'costas', 'Barra fixa / graviton', 'Pegada um pouco mais aberta que os ombros, suba até o queixo passar a barra.'),
+  ex('pulldown-braco-reto', 'Pulldown com braços estendidos', 'costas', 'Polia alta + barra/corda', 'Braços quase retos, leve a barra até as coxas usando as costas.'),
+  ex('levantamento-terra', 'Levantamento terra', 'costas', 'Barra livre + anilhas', 'Barra rente às canelas, coluna neutra. Empurre o chão com as pernas e estenda o quadril.'),
+  ex('hiperextensao', 'Hiperextensão lombar', 'costas', 'Banco romano', 'Desça com a coluna neutra e suba até alinhar o tronco com as pernas, sem hiperestender.'),
+
+  // Ombros
+  ex('desenvolvimento-halter', 'Desenvolvimento com halteres', 'ombros', 'Banco com encosto + halteres', 'Comece com halteres na altura das orelhas e empurre para cima sem bater um no outro.'),
+  ex('desenvolvimento-maquina', 'Desenvolvimento na máquina', 'ombros', 'Máquina de desenvolvimento', 'Ajuste o banco para as pegadas ficarem na altura dos ombros. Empurre sem travar.'),
+  ex('elevacao-lateral', 'Elevação lateral', 'ombros', 'Halteres', 'Cotovelos levemente flexionados, suba até a linha dos ombros, como quem “derrama água”.'),
+  ex('elevacao-lateral-polia', 'Elevação lateral na polia', 'ombros', 'Polia baixa', 'Puxe o cabo por trás/frente do corpo até a linha do ombro, tensão constante.'),
+  ex('elevacao-frontal', 'Elevação frontal', 'ombros', 'Halteres ou anilha', 'Suba os braços à frente até a altura dos olhos, sem balançar o tronco.'),
+  ex('crucifixo-inverso', 'Crucifixo inverso (posterior)', 'ombros', 'Peck deck invertido ou halteres', 'Abra os braços para trás focando no deltoide posterior.'),
+  ex('face-pull', 'Face pull', 'ombros', 'Polia alta + corda', 'Puxe a corda em direção ao rosto abrindo as mãos e girando os ombros para fora.'),
+  ex('encolhimento', 'Encolhimento (trapézio)', 'ombros', 'Halteres ou barra', 'Suba os ombros em direção às orelhas, segure 1s e desça devagar.'),
+
+  // Bíceps
+  ex('rosca-direta', 'Rosca direta com barra', 'biceps', 'Barra reta ou W', 'Cotovelos colados ao corpo, suba sem balançar o tronco.'),
+  ex('rosca-alternada', 'Rosca alternada com halteres', 'biceps', 'Halteres', 'Gire o punho (supinação) durante a subida. Um braço de cada vez.'),
+  ex('rosca-martelo', 'Rosca martelo', 'biceps', 'Halteres', 'Pegada neutra (palmas uma de frente para a outra), cotovelos fixos.'),
+  ex('rosca-scott', 'Rosca Scott', 'biceps', 'Banco Scott + barra W', 'Axilas encaixadas no apoio, desça até quase estender o braço.'),
+  ex('rosca-concentrada', 'Rosca concentrada', 'biceps', 'Halter', 'Cotovelo apoiado na parte interna da coxa, suba contraindo bem.'),
+  ex('rosca-polia', 'Rosca na polia', 'biceps', 'Polia baixa + barra', 'Tensão constante. Cotovelos parados ao lado do corpo.'),
+
+  // Tríceps
+  ex('triceps-pulley', 'Tríceps pulley (barra)', 'triceps', 'Polia alta + barra', 'Cotovelos colados ao corpo, estenda totalmente e volte até 90°.'),
+  ex('triceps-corda', 'Tríceps corda', 'triceps', 'Polia alta + corda', 'No final, abra a corda para os lados para contrair mais.'),
+  ex('triceps-testa', 'Tríceps testa', 'triceps', 'Banco + barra W', 'Cotovelos apontando para o teto, desça a barra em direção à testa.'),
+  ex('triceps-frances', 'Tríceps francês', 'triceps', 'Halter', 'Halter atrás da cabeça, cotovelos fechados, estenda para cima.'),
+  ex('triceps-banco', 'Mergulho no banco', 'triceps', 'Banco', 'Mãos no banco atrás do corpo, desça até os cotovelos fazerem 90°.'),
+  ex('triceps-coice', 'Tríceps coice', 'triceps', 'Halter ou polia', 'Tronco inclinado, braço paralelo ao corpo, estenda o cotovelo para trás.'),
+  ex('supino-fechado', 'Supino fechado', 'triceps', 'Banco reto + barra', 'Pegada na largura dos ombros, cotovelos perto do corpo.'),
+
+  // Quadríceps
+  ex('agachamento-livre', 'Agachamento livre', 'quadriceps', 'Barra + rack', 'Pés na largura dos ombros, desça com o quadril para trás mantendo o peito aberto e joelhos alinhados com os pés.'),
+  ex('agachamento-smith', 'Agachamento no Smith', 'quadriceps', 'Máquina Smith', 'Pés levemente à frente da barra. Desça controlando até coxas paralelas ao chão.'),
+  ex('agachamento-hack', 'Agachamento hack', 'quadriceps', 'Máquina hack', 'Costas apoiadas, desça fundo sem tirar o calcanhar da plataforma.'),
+  ex('leg-press', 'Leg press 45°', 'quadriceps', 'Máquina leg press', 'Pés na largura do quadril no meio da plataforma. Desça até ~90° sem tirar a lombar do encosto. Não trave os joelhos.'),
+  ex('cadeira-extensora', 'Cadeira extensora', 'quadriceps', 'Máquina extensora', 'Ajuste o encosto para o joelho ficar alinhado ao eixo da máquina. Estenda e segure 1s no topo.'),
+  ex('afundo', 'Afundo / passada', 'quadriceps', 'Halteres ou peso corporal', 'Passo largo, desça até o joelho de trás quase tocar o chão. Tronco ereto.'),
+  ex('bulgaro', 'Agachamento búlgaro', 'quadriceps', 'Banco + halteres', 'Pé de trás apoiado no banco. Desça na vertical com o peso na perna da frente.'),
+  ex('agachamento-goblet', 'Agachamento goblet', 'quadriceps', 'Halter ou kettlebell', 'Segure o peso junto ao peito e desça fundo com os cotovelos entre os joelhos.'),
+  ex('sissy', 'Sissy squat', 'quadriceps', 'Peso corporal / aparelho sissy', 'Joelhos vão à frente enquanto o tronco inclina para trás, alinhado com as coxas.'),
+
+  // Posterior
+  ex('mesa-flexora', 'Mesa flexora', 'posterior', 'Máquina flexora deitada', 'Quadril colado no banco. Flexione levando o calcanhar em direção ao glúteo.'),
+  ex('cadeira-flexora', 'Cadeira flexora', 'posterior', 'Máquina flexora sentada', 'Trave bem as coxas, flexione e volte devagar.'),
+  ex('stiff', 'Stiff', 'posterior', 'Barra ou halteres', 'Joelhos semiflexionados, leve o quadril para trás descendo a barra rente às pernas até alongar o posterior.'),
+  ex('terra-romeno', 'Levantamento terra romeno', 'posterior', 'Barra', 'Igual ao stiff, mas com joelhos um pouco mais flexionados e foco na dobradiça do quadril.'),
+  ex('flexora-em-pe', 'Flexora em pé (unilateral)', 'posterior', 'Máquina flexora em pé', 'Uma perna de cada vez, sem compensar com o quadril.'),
+  ex('good-morning', 'Good morning', 'posterior', 'Barra', 'Barra nas costas, incline o tronco à frente com coluna neutra e volte.'),
+
+  // Glúteos
+  ex('elevacao-pelvica', 'Elevação pélvica (hip thrust)', 'gluteos', 'Banco + barra', 'Costas apoiadas no banco, empurre o quadril para cima até alinhar tronco e coxas. Contraia o glúteo no topo.'),
+  ex('gluteo-polia', 'Glúteo na polia (coice)', 'gluteos', 'Polia baixa + tornozeleira', 'Leve a perna para trás sem arquear a lombar.'),
+  ex('gluteo-maquina', 'Glúteo na máquina (coice)', 'gluteos', 'Máquina de glúteo', 'Empurre a plataforma para trás com o calcanhar.'),
+  ex('abdutora', 'Cadeira abdutora', 'gluteos', 'Máquina abdutora', 'Abra as pernas contra a resistência, tronco levemente inclinado à frente foca mais no glúteo.'),
+  ex('adutora', 'Cadeira adutora', 'gluteos', 'Máquina adutora', 'Feche as pernas controlando, sem bater as almofadas.'),
+  ex('ponte', 'Ponte de glúteo', 'gluteos', 'Peso corporal / anilha', 'Deitado, pés no chão, suba o quadril contraindo o glúteo.'),
+
+  // Panturrilha
+  ex('panturrilha-em-pe', 'Panturrilha em pé', 'panturrilha', 'Máquina ou Smith', 'Suba na ponta dos pés o máximo possível e desça alongando bem.'),
+  ex('panturrilha-sentado', 'Panturrilha sentado', 'panturrilha', 'Máquina sentada (sóleo)', 'Amplitude total, segure 1s em cima.'),
+  ex('panturrilha-leg', 'Panturrilha no leg press', 'panturrilha', 'Leg press', 'Só a ponta dos pés na plataforma, empurre estendendo o tornozelo.'),
+
+  // Abdômen
+  ex('abdominal-crunch', 'Abdominal crunch', 'abdomen', 'Colchonete', 'Tire só as escápulas do chão, contraindo o abdômen.'),
+  ex('prancha', 'Prancha', 'abdomen', 'Colchonete', 'Antebraços no chão, corpo reto, contraia abdômen e glúteos. Conte o tempo.'),
+  ex('elevacao-pernas', 'Elevação de pernas', 'abdomen', 'Banco ou barra fixa', 'Suba as pernas sem embalo, controlando a descida.'),
+  ex('abdominal-polia', 'Abdominal na polia (crunch ajoelhado)', 'abdomen', 'Polia alta + corda', 'Ajoelhado, flexione o tronco levando os cotovelos às coxas.'),
+  ex('abdominal-infra', 'Abdominal infra', 'abdomen', 'Colchonete', 'Deitado, leve os joelhos ao peito tirando o quadril do chão.'),
+  ex('russian-twist', 'Russian twist', 'abdomen', 'Anilha ou peso corporal', 'Sentado com tronco inclinado, gire de um lado para o outro.'),
+
+  // Cardio
+  ex('esteira', 'Esteira', 'cardio', 'Esteira', 'Caminhada inclinada ou corrida. Defina tempo e velocidade.'),
+  ex('bike', 'Bicicleta ergométrica', 'cardio', 'Bike', 'Ajuste o banco na altura do quadril. Ritmo constante ou intervalado.'),
+  ex('escada', 'Escada / simulador', 'cardio', 'Simulador de escada', 'Postura ereta, sem se apoiar demais no corrimão.'),
+  ex('eliptico', 'Elíptico (transport)', 'cardio', 'Elíptico', 'Movimento contínuo, use os braços junto.'),
+];
+
+export const METHODS = [
+  { id: 'normal', name: 'Normal', desc: 'Séries e repetições tradicionais com descanso entre as séries.' },
+  { id: 'drop-set', name: 'Drop-set', desc: 'Vá até a falha, reduza a carga (~20–30%) e continue sem descanso. Repita 2–3 vezes.' },
+  { id: 'rest-pause', name: 'Rest-pause', desc: 'Vá até a falha, descanse 10–20s e faça mais repetições com a mesma carga.' },
+  { id: 'bi-set', name: 'Bi-set', desc: 'Dois exercícios seguidos sem descanso entre eles (geralmente mesmo grupo muscular).' },
+  { id: 'tri-set', name: 'Tri-set', desc: 'Três exercícios seguidos sem descanso entre eles.' },
+  { id: 'super-serie', name: 'Super-série', desc: 'Dois exercícios de grupos opostos (ex.: bíceps e tríceps) sem descanso.' },
+  { id: 'piramide-cresc', name: 'Pirâmide crescente', desc: 'A cada série aumenta a carga e diminui as repetições (ex.: 12-10-8-6).' },
+  { id: 'piramide-decresc', name: 'Pirâmide decrescente', desc: 'Começa pesado com poucas reps e vai tirando carga e aumentando reps.' },
+  { id: 'fst7', name: 'FST-7', desc: '7 séries de 8–12 reps com 30–45s de descanso, normalmente no último exercício.' },
+  { id: 'gvt', name: 'GVT (10x10)', desc: '10 séries de 10 repetições com a mesma carga (~60% da máxima) e 60–90s de descanso.' },
+  { id: 'cluster', name: 'Cluster set', desc: 'Divide a série em mini-blocos (ex.: 3+3+3) com 10–20s de pausa entre eles.' },
+  { id: 'negativa', name: 'Negativa / excêntrica', desc: 'Foco na descida lenta (3–5s) do movimento.' },
+  { id: 'isometria', name: 'Isometria', desc: 'Segura a posição de maior tensão por alguns segundos em cada repetição.' },
+  { id: 'parcial', name: 'Repetições parciais', desc: 'Após a falha, faz repetições com meia amplitude para estender a série.' },
+  { id: 'myo-reps', name: 'Myo-reps', desc: 'Uma série de ativação até perto da falha, depois mini-séries de 3–5 reps com 5 respirações de pausa.' },
+];
+
+export const WORKOUT_TEMPLATES = [
+  { name: 'Pernas', groups: ['quadriceps', 'posterior', 'gluteos', 'panturrilha'] },
+  { name: 'Peito e Tríceps', groups: ['peito', 'triceps'] },
+  { name: 'Costas e Bíceps', groups: ['costas', 'biceps'] },
+  { name: 'Ombros e Abdômen', groups: ['ombros', 'abdomen'] },
+  { name: 'Glúteos e Posterior', groups: ['gluteos', 'posterior'] },
+  { name: 'Full body', groups: ['peito', 'costas', 'quadriceps', 'ombros'] },
+];
+
+export const COLORS = ['#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ef4444', '#eab308', '#14b8a6', '#ec4899'];
