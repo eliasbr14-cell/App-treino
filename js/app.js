@@ -1,5 +1,5 @@
 import { GROUPS, EXERCISES, METHODS, WORKOUT_TEMPLATES, COLORS } from './data.js';
-import { getState, update, save, replaceState, uid, putVideo, getVideo, deleteVideo } from './store.js';
+import { getState, update, replaceState, uid } from './store.js';
 
 // ============ utilitários ============
 const app = document.getElementById('app');
@@ -31,10 +31,6 @@ function fmtDuration(ms) {
   return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
 }
 
-function youtubeId(url) {
-  const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/);
-  return m ? m[1] : null;
-}
 const ytSearch = (name) => `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + name + ' execução correta')}`;
 
 function itemSummary(it) {
@@ -42,6 +38,32 @@ function itemSummary(it) {
   if (it.load) parts.push(esc(it.load));
   if (it.rest) parts.push(`⏱ ${it.rest}s`);
   return parts.join(' · ');
+}
+
+const thumb = (e) => e?.demo
+  ? `<img class="thumb" src="img/ex/${e.id}-0.jpg" alt="" loading="lazy">`
+  : `<span class="thumb ph">🏋️</span>`;
+
+// Demonstração: alterna a foto do início e do fim do movimento, como um vídeo curtinho
+function demoBox(e) {
+  if (!e) return '';
+  const media = e.demo
+    ? `<div class="demo" role="img" aria-label="Demonstração: ${esc(e.name)}">
+         <img src="img/ex/${e.id}-0.jpg" alt=""><img class="b" src="img/ex/${e.id}-1.jpg" alt="">
+         <span class="demo-tag">início ⇄ fim</span>
+       </div>`
+    : `<div class="demo ph"><div><div class="big">🏋️</div><small>Exercício personalizado, sem demonstração.</small></div></div>`;
+  return `${media}
+    <a class="yt-link" href="${ytSearch(e.name)}" target="_blank" rel="noopener">▶ Ver vídeos desse exercício no YouTube</a>`;
+}
+
+// Variações: primeiro as da mesma família (ex.: outros tríceps de extensão), depois o resto do grupo
+function alternatives(exId) {
+  const e = findExercise(exId);
+  if (!e) return { similar: [], others: [] };
+  const rest = allExercises().filter(x => x.id !== e.id && x.group === e.group);
+  const similar = e.fam ? rest.filter(x => x.fam === e.fam) : [];
+  return { similar, others: rest.filter(x => !similar.includes(x)) };
 }
 
 const badge = (w, size = '') => `<span class="badge ${size}" style="--c:${esc(w.color)}">${esc(w.letter)}</span>`;
@@ -194,7 +216,7 @@ function viewWorkout(id) {
           ${m.id !== 'normal' ? `<span class="tag">${esc(m.name)}</span>` : ''}
           ${it.notes ? `<p class="notes">${esc(it.notes)}</p>` : ''}
         </a>
-        ${e ? `<a class="icon-btn video" href="#/exercicio/${e.id}" aria-label="Ver vídeo">${S().media[e.id] ? '🎬' : '🎥'}</a>` : ''}
+        ${e ? `<a href="#/exercicio/${e.id}" aria-label="Ver como faz">${thumb(e)}</a>` : ''}
       </div>`;
   }).join('');
 
@@ -215,8 +237,9 @@ function exerciseList(exs, { workout } = {}) {
   const inW = new Set(workout?.items.map(i => i.exerciseId));
   return exs.map(e => `
     <div class="card ex">
+      <a href="#/exercicio/${e.id}">${thumb(e)}</a>
       <a class="grow" href="#/exercicio/${e.id}">
-        <h3>${esc(e.name)} ${S().media[e.id] ? '<span title="Tem vídeo">🎬</span>' : ''}</h3>
+        <h3>${esc(e.name)}</h3>
         <small>${groupName(e.group)} · ${esc(e.equipment || '')}${e.custom ? ' · <i>personalizado</i>' : ''}</small>
       </a>
       ${workout ? `<button class="add ${inW.has(e.id) ? 'on' : ''}" data-act="add-ex" data-id="${e.id}" aria-label="Adicionar">${inW.has(e.id) ? '✓' : '+'}</button>` : ''}
@@ -285,7 +308,8 @@ function viewItem(wid, iid) {
     back: `#/treino/${w.id}`,
     nav: false,
     body: `
-      <div id="video" class="video-box" data-ex="${e?.id || ''}"></div>
+      ${demoBox(e)}
+      <button type="button" class="btn block" data-act="swap" data-id="${it.id}" data-w="${w.id}" data-perm="1">🔄 Trocar por outra variação</button>
       <form id="iform" class="card form">
         <div class="grid2">
           <div><label>Séries</label>
@@ -314,7 +338,6 @@ function viewItem(wid, iid) {
 function mountItem(wid, iid) {
   const form = document.getElementById('iform');
   if (!form) return;
-  mountVideo();
   form.addEventListener('click', (e) => {
     const st = e.target.closest('[data-step]');
     if (st) form.sets.value = Math.max(1, Math.min(20, (+form.sets.value || 0) + +st.dataset.step));
@@ -359,62 +382,57 @@ function viewExercise(id) {
     actions: e.custom ? `<button class="icon-btn" data-act="edit-exercise" data-id="${e.id}" aria-label="Editar">✏️</button>` : '',
     nav: false,
     body: `
-      <div id="video" class="video-box" data-ex="${e.id}"></div>
+      ${demoBox(e)}
       <div class="card">
         <p><span class="tag">${groupName(e.group)}</span></p>
         <h3>🛠️ Equipamento / máquina</h3>
         <p>${esc(e.equipment || '—')}</p>
         <h3>📋 Como fazer</h3>
         <p>${esc(e.tips || 'Sem dicas ainda.')}</p>
+        ${alternatives(e.id).similar.length ? `<h3>🔄 Variações (se não tiver o aparelho)</h3>
+          <div class="chips">${alternatives(e.id).similar.map(x => `<a class="chip" href="#/exercicio/${x.id}">${esc(x.name)}</a>`).join('')}</div>` : ''}
         ${usedIn.length ? `<h3>📌 Está nos treinos</h3><p>${usedIn.map(w => `<a href="#/treino/${w.id}">${badge(w)} ${esc(w.name)}</a>`).join(' ')}</p>` : ''}
       </div>`,
   });
 }
 
-// Área de vídeo: YouTube embutido, vídeo gravado ou opções para adicionar
-async function mountVideo() {
-  const box = document.getElementById('video');
-  if (!box || !box.dataset.ex) return;
-  const id = box.dataset.ex;
-  const e = findExercise(id);
-  const media = S().media[id];
-  const controls = (has) => `
-    <div class="video-actions">
-      <a class="btn small" href="${ytSearch(e.name)}" target="_blank" rel="noopener">🔎 Buscar no YouTube</a>
-      <button class="btn small" data-act="video-link" data-id="${id}">🔗 ${has ? 'Trocar' : 'Colar'} link</button>
-      <label class="btn small">📹 Gravar / enviar vídeo<input type="file" accept="video/*" capture="environment" hidden data-video-file="${id}"></label>
-      ${has ? `<button class="btn small danger" data-act="video-remove" data-id="${id}">Remover vídeo</button>` : ''}
-    </div>`;
-
-  if (media?.type === 'youtube' && youtubeId(media.url)) {
-    box.innerHTML = `<div class="frame"><iframe src="https://www.youtube-nocookie.com/embed/${youtubeId(media.url)}?rel=0&playsinline=1"
-      title="Vídeo do exercício" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>${controls(true)}`;
-  } else if (media?.type === 'file') {
-    box.innerHTML = `<div class="frame"><div class="loading">Carregando vídeo…</div></div>${controls(true)}`;
-    try {
-      const blob = await getVideo(id);
-      if (!blob) throw new Error('vídeo não encontrado');
-      const url = URL.createObjectURL(blob);
-      box.querySelector('.frame').innerHTML = `<video src="${url}" controls playsinline loop muted autoplay></video>`;
-    } catch {
-      box.querySelector('.frame').innerHTML = `<div class="loading">Vídeo não encontrado neste aparelho.</div>`;
-    }
-  } else {
-    box.innerHTML = `
-      <div class="frame placeholder">
-        <div><div class="big">🎥</div><p>Sem vídeo ainda.<br><small>Busque no YouTube e cole o link, ou grave a máquina da sua academia.</small></p></div>
-      </div>${controls(false)}`;
-  }
-  box.querySelector('[data-video-file]')?.addEventListener('change', async (ev) => {
-    const file = ev.target.files[0];
-    if (!file) return;
-    if (file.size > 80 * 1024 * 1024) return alert('Vídeo muito grande (máx. 80 MB). Grave um trecho mais curto.');
-    try {
-      await putVideo(id, file);
-      update(st => { st.media[id] = { type: 'file', name: file.name }; });
-      toast('Vídeo salvo 🎬');
-      mountVideo();
-    } catch (err) { alert('Não foi possível salvar o vídeo: ' + err.message); }
+function openSwap(wid, itemId, permanent) {
+  const w = findWorkout(wid);
+  const it = w.items.find(i => i.id === itemId);
+  const current = (!permanent && S().session?.swaps?.[itemId]) || it.exerciseId;
+  const e = findExercise(it.exerciseId);
+  const { similar, others } = alternatives(it.exerciseId);
+  const row = (x) => `
+    <button class="pick ${x.id === current ? 'on' : ''}" data-pick="${x.id}">
+      ${thumb(x)}<span class="grow"><b>${esc(x.name)}</b><small>${esc(x.equipment || '')}</small></span>
+    </button>`;
+  const sh = sheet(`
+    <h2>Trocar ${esc(e?.name || 'exercício')}</h2>
+    <p class="hint">${permanent ? 'Escolha a variação que vai ficar no treino.' : 'A academia não tem o aparelho ou tá ocupado? Escolha uma variação só pra hoje.'}</p>
+    ${permanent ? '' : `<label class="check"><input type="checkbox" id="swap-perm"> Deixar essa troca salva no treino</label>`}
+    ${!permanent && current !== it.exerciseId ? `<button class="pick" data-pick="${it.exerciseId}">${thumb(e)}<span class="grow"><b>↩ Voltar para ${esc(e.name)}</b></span></button>` : ''}
+    ${similar.length ? `<h3 class="sec">Mais parecidos</h3>${similar.map(row).join('')}` : ''}
+    ${others.length ? `<h3 class="sec">Outros de ${groupName(e?.group)}</h3>${others.map(row).join('')}` : ''}
+    <div class="row end"><button class="btn" data-close>Cancelar</button></div>`);
+  sh.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-pick]');
+    if (!b) return;
+    const pick = b.dataset.pick;
+    const perm = permanent || sh.querySelector('#swap-perm')?.checked;
+    update(st => {
+      const item = st.workouts.find(x => x.id === wid).items.find(i => i.id === itemId);
+      if (perm) {
+        item.exerciseId = pick;
+        if (st.session?.swaps) delete st.session.swaps[itemId];
+      } else {
+        st.session.swaps ||= {};
+        if (pick === item.exerciseId) delete st.session.swaps[itemId];
+        else st.session.swaps[itemId] = pick;
+      }
+    });
+    sh.close();
+    toast(perm ? 'Exercício trocado no treino ✓' : 'Trocado só pra hoje ✓');
+    render();
   });
 }
 
@@ -473,9 +491,7 @@ function openExerciseForm(e, onCreate) {
     update(st => {
       st.customExercises = st.customExercises.filter(x => x.id !== e.id);
       st.workouts.forEach(w => { w.items = w.items.filter(i => i.exerciseId !== e.id); });
-      delete st.media[e.id];
     });
-    deleteVideo(e.id).catch(() => {});
     sh.close();
     go('#/exercicios');
   });
@@ -512,7 +528,7 @@ function startWorkout(id) {
     if (!confirm('Já tem um treino em andamento. Descartar e começar este?')) return go(`#/sessao/${st.session.workoutId}`);
   }
   if (!st.session || st.session.workoutId !== id) {
-    update(s => { s.session = { workoutId: id, start: Date.now(), checks: {}, loads: {} }; });
+    update(s => { s.session = { workoutId: id, start: Date.now(), checks: {}, loads: {}, swaps: {} }; });
   }
   go(`#/sessao/${id}`);
 }
@@ -525,8 +541,10 @@ function viewSession(id) {
   const done = w.items.reduce((a, i) => a + (ses.checks[i.id] || []).filter(Boolean).length, 0);
   const pct = total ? Math.round(done / total * 100) : 0;
 
+  const swaps = ses.swaps || {};
   const cards = w.items.map((it) => {
-    const e = findExercise(it.exerciseId);
+    const e = findExercise(swaps[it.id] || it.exerciseId);
+    const orig = swaps[it.id] ? findExercise(it.exerciseId) : null;
     const m = findMethod(it.method);
     const checks = ses.checks[it.id] || [];
     const complete = checks.filter(Boolean).length >= it.sets;
@@ -538,11 +556,13 @@ function viewSession(id) {
             <small>${it.sets} × ${esc(it.reps)} · ⏱ ${it.rest}s</small>
             ${m.id !== 'normal' ? `<span class="tag" data-act="method-info" data-id="${m.id}">${esc(m.name)} ⓘ</span>` : ''}
           </div>
-          ${e ? `<a class="icon-btn video" href="#/exercicio/${e.id}" aria-label="Ver vídeo">${S().media[e.id] ? '🎬' : '🎥'}</a>` : ''}
+          ${e ? `<a href="#/exercicio/${e.id}" aria-label="Ver como faz">${thumb(e)}</a>` : ''}
         </div>
+        ${orig ? `<p class="swapped">🔄 Hoje no lugar de <b>${esc(orig.name)}</b> · <button class="link" data-act="unswap" data-id="${it.id}">desfazer</button></p>` : ''}
         ${it.notes ? `<p class="notes">${esc(it.notes)}</p>` : ''}
         <div class="row">
           <label class="load">Carga <input data-load="${it.id}" value="${esc(ses.loads[it.id] ?? it.load)}" placeholder="—"></label>
+          <button class="btn small" data-act="swap" data-id="${it.id}" data-w="${w.id}">🔄 Trocar</button>
         </div>
         <div class="sets">${Array.from({ length: it.sets }, (_, s) => `
           <button class="set ${checks[s] ? 'on' : ''}" data-act="check" data-id="${it.id}" data-s="${s}">${checks[s] ? '✓' : s + 1}</button>`).join('')}
@@ -670,7 +690,7 @@ function viewConfig() {
     body: `
       <div class="card">
         <h3>💾 Backup</h3>
-        <p class="hint">Seus treinos ficam salvos neste aparelho. Exporte um backup para não perder ou para passar para outro celular. (Vídeos gravados não entram no backup — links do YouTube entram.)</p>
+        <p class="hint">Seus treinos ficam salvos neste aparelho. Exporte um backup para não perder ou para passar para outro celular.</p>
         <div class="row"><button class="btn" data-act="export">Exportar backup</button>
         <label class="btn">Importar backup<input type="file" accept="application/json,.json" hidden id="import"></label></div>
       </div>
@@ -757,20 +777,8 @@ const actions = {
     update(st => { const w = st.workouts.find(x => x.id === el.dataset.w); w.items = w.items.filter(i => i.id !== el.dataset.id); });
     go(`#/treino/${el.dataset.w}`);
   },
-  'video-link': (el) => {
-    const url = prompt('Cole o link do vídeo do YouTube:');
-    if (!url) return;
-    if (!youtubeId(url)) return alert('Não reconheci esse link. Use um link do YouTube (youtube.com ou youtu.be).');
-    update(st => { st.media[el.dataset.id] = { type: 'youtube', url: url.trim() }; });
-    deleteVideo(el.dataset.id).catch(() => {});
-    mountVideo();
-  },
-  'video-remove': (el) => {
-    if (!confirm('Remover o vídeo deste exercício?')) return;
-    update(st => { delete st.media[el.dataset.id]; });
-    deleteVideo(el.dataset.id).catch(() => {});
-    mountVideo();
-  },
+  'swap': (el) => openSwap(el.dataset.w, el.dataset.id, !!el.dataset.perm),
+  'unswap': (el) => { update(st => { delete st.session.swaps?.[el.dataset.id]; }); render(); },
   'new-method': () => openMethodForm(() => render()),
   'delete-method': (el) => {
     if (!confirm('Excluir este método?')) return;
@@ -815,7 +823,6 @@ const actions = {
   'reset': () => {
     if (!confirm('Apagar TODOS os treinos, histórico e configurações?')) return;
     replaceState({});
-    indexedDB.deleteDatabase('app-treino-media');
     go('#/');
   },
 };
@@ -863,7 +870,7 @@ function render() {
   else if (p[0] === 'treino' && p[2] === 'item') { html = viewItem(p[1], p[3]); mount = () => mountItem(p[1], p[3]); }
   else if (p[0] === 'treino') html = viewWorkout(p[1]);
   else if (p[0] === 'exercicios') html = viewLibrary();
-  else if (p[0] === 'exercicio') { html = viewExercise(p[1]); mount = mountVideo; }
+  else if (p[0] === 'exercicio') html = viewExercise(p[1]);
   else if (p[0] === 'metodos') html = viewMethods();
   else if (p[0] === 'historico') html = viewHistory();
   else if (p[0] === 'config') { html = viewConfig(); mount = mountConfig; }
