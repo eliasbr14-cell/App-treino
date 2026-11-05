@@ -3,6 +3,9 @@
 App de celular (PWA) para montar treinos **A, B, C…** totalmente personalizados.
 
 ## O que dá pra fazer
+- **Treinos prontos por nível**: Iniciante (AB), Intermediário (ABC) e Avançado (ABCDE), já com séries, descanso e métodos. Dá para substituir os seus ou adicionar junto, e depois editar tudo.
+- **Arrastar e soltar** (segura no ⠿) para mudar a ordem dos treinos e dos exercícios.
+- **Próximo treino**: o app destaca qual treino é o próximo da sequência, pelo último que você fez.
 - **Criar treinos** com nome, letra e cor (ex.: *A – Pernas*, *B – Peito e Tríceps*). Tem modelos rápidos.
 - **Adicionar exercícios** de uma biblioteca com ~80 exercícios separados por grupo muscular, ou **criar os seus**.
 - Em cada exercício: **séries, repetições (ex.: `12-10-8`), carga, descanso, método e observações**.

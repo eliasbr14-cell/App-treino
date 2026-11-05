@@ -1,4 +1,4 @@
-import { GROUPS, EXERCISES, METHODS, WORKOUT_TEMPLATES, COLORS } from './data.js';
+import { GROUPS, EXERCISES, METHODS, WORKOUT_TEMPLATES, COLORS, PROGRAMS } from './data.js';
 import { getState, update, replaceState, uid } from './store.js';
 import * as cloud from './cloud.js';
 
@@ -114,22 +114,29 @@ function viewHome() {
       ${badge(sw)} <div><b>Treino em andamento</b><small>${esc(sw.name)} — toque para continuar</small></div><span>▶</span>
     </a>` : '';
 
-  const list = workouts.length ? workouts.map(w => `
-    <div class="card workout" style="--c:${esc(w.color)}">
+  const next = nextWorkout();
+  const list = workouts.length ? `<div data-sortable="workouts">` + workouts.map(w => `
+    <div class="card workout ${next?.id === w.id ? 'next' : ''}" style="--c:${esc(w.color)}" data-sort-id="${w.id}">
+      <span class="handle" data-drag aria-label="Arrastar para reordenar">⠿</span>
       <a class="workout-main" href="#/treino/${w.id}">
         ${badge(w, 'lg')}
         <div class="grow">
+          ${next?.id === w.id ? '<span class="next-tag">👉 Próximo treino</span>' : ''}
           <h3>${esc(w.name)}</h3>
           <small>${w.items.length} exercício${w.items.length === 1 ? '' : 's'}${w.groups?.length ? ' · ' + w.groups.map(groupName).join(', ') : ''}</small>
         </div>
       </a>
       <button class="play" data-act="start" data-id="${w.id}" aria-label="Iniciar treino">▶</button>
-    </div>`).join('') : `
+    </div>`).join('') + `</div>
+    <a class="btn block dashed" href="#/programas">📋 Ver treinos prontos (iniciante, intermediário, avançado)</a>` : `
     <div class="empty">
       <div class="big">🏋️</div>
       <h2>Monte seu primeiro treino</h2>
       <p>Crie treinos A, B, C… do seu jeito: “Pernas”, “Peito e Tríceps”, o que quiser. Depois é só adicionar os exercícios e os métodos.</p>
-      <button class="btn primary" data-act="new-workout">+ Criar treino</button>
+      <div class="stack">
+        <a class="btn primary" href="#/programas">📋 Começar com um treino pronto</a>
+        <button class="btn" data-act="new-workout">+ Montar do zero</button>
+      </div>
     </div>`;
 
   return page({
@@ -206,12 +213,8 @@ function viewWorkout(id) {
     const e = findExercise(it.exerciseId);
     const m = findMethod(it.method);
     return `
-      <div class="card item">
-        <div class="order">
-          <button data-act="move" data-id="${it.id}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="Subir">▲</button>
-          <span>${i + 1}</span>
-          <button data-act="move" data-id="${it.id}" data-dir="1" ${i === w.items.length - 1 ? 'disabled' : ''} aria-label="Descer">▼</button>
-        </div>
+      <div class="card item" data-sort-id="${it.id}">
+        <span class="handle" data-drag aria-label="Arrastar para reordenar">⠿<small class="pos">${i + 1}</small></span>
         <a class="grow" href="#/treino/${w.id}/item/${it.id}">
           <h3>${esc(e?.name || 'Exercício removido')}</h3>
           <small>${itemSummary(it)}</small>
@@ -229,7 +232,8 @@ function viewWorkout(id) {
               <button class="icon-btn" data-act="delete-workout" data-id="${w.id}" aria-label="Excluir">🗑️</button>`,
     body: `
       ${w.items.length ? `<button class="btn primary block" data-act="start" data-id="${w.id}">▶ Iniciar treino</button>` : ''}
-      ${items || `<div class="empty"><p>Nenhum exercício ainda. Adicione os exercícios desse treino 👇</p></div>`}
+      ${items ? `<p class="hint center">Segure no ⠿ e arraste para mudar a ordem</p><div data-sortable="items" data-w="${w.id}">${items}</div>` : ''}
+      ${items ? '' : `<div class="empty"><p>Nenhum exercício ainda. Adicione os exercícios desse treino 👇</p></div>`}
       <a class="btn block dashed" href="#/treino/${w.id}/add">+ Adicionar exercícios</a>`,
   });
 }
@@ -437,6 +441,135 @@ function openSwap(wid, itemId, permanent) {
     render();
   });
 }
+
+// ============ treinos prontos ============
+function nextWorkout() {
+  const { workouts, history } = S();
+  if (!workouts.length) return null;
+  const last = history.find(h => workouts.some(w => w.id === h.workoutId));
+  if (!last) return workouts[0];
+  const i = workouts.findIndex(w => w.id === last.workoutId);
+  return workouts[(i + 1) % workouts.length];
+}
+
+const LEVEL_ICON = { 'Iniciante': '🌱', 'Intermediário': '🔥', 'Avançado': '🏆' };
+
+function viewPrograms() {
+  return page({
+    title: 'Treinos prontos',
+    back: '#/',
+    body: `
+      <p class="hint">Escolha um programa para começar. Depois você pode mudar tudo: exercícios, séries, cargas e métodos.</p>
+      ${PROGRAMS.map(p => `
+        <a class="card program" href="#/programa/${p.id}">
+          <div class="row between" style="margin-top:0"><h3>${LEVEL_ICON[p.level] || ''} ${esc(p.name)}</h3><span>›</span></div>
+          <div class="letters-row">${p.workouts.map((w, i) => `<span class="badge" style="--c:${COLORS[i % COLORS.length]}">${w.letter}</span>`).join('')}
+            <small>${p.workouts.map(w => esc(w.name)).join(' · ')}</small></div>
+          <small>📅 ${esc(p.freq)}</small>
+        </a>`).join('')}
+      <p class="hint">⚠️ São sugestões gerais. Se tiver lesão, dor ou condição de saúde, procure um educador físico antes de começar.</p>`,
+  });
+}
+
+function viewProgram(id) {
+  const p = PROGRAMS.find(x => x.id === id);
+  if (!p) return viewNotFound();
+  return page({
+    title: `${LEVEL_ICON[p.level] || ''} ${esc(p.name)}`,
+    back: '#/programas',
+    nav: false,
+    body: `
+      <div class="card"><p>${esc(p.desc)}</p><p class="hint">📅 ${esc(p.freq)}</p></div>
+      ${p.workouts.map((w, i) => `
+        <div class="card">
+          <div class="row" style="margin-top:0">${badge({ letter: w.letter, color: COLORS[i % COLORS.length] })}<h3>${esc(w.name)}</h3></div>
+          ${w.items.map(it => {
+            const e = findExercise(it.exerciseId);
+            const m = findMethod(it.method);
+            return `<a class="prog-ex" href="#/exercicio/${e.id}">${thumb(e)}<span class="grow"><b>${esc(e.name)}</b>
+              <small>${it.sets} × ${esc(it.reps)} · ⏱ ${it.rest}s${m.id !== 'normal' ? ' · ' + esc(m.name) : ''}</small></span></a>`;
+          }).join('')}
+        </div>`).join('')}
+      <button class="btn primary block" data-act="use-program" data-id="${p.id}">Usar este programa</button>`,
+  });
+}
+
+function applyProgram(p, replace) {
+  update(st => {
+    if (replace) {
+      st.workouts = [];
+      st.session = null;
+    }
+    const used = new Set(st.workouts.map(w => w.letter));
+    p.workouts.forEach((w, i) => {
+      const letter = used.has(w.letter) ? (LETTERS.find(l => !used.has(l)) || w.letter) : w.letter;
+      used.add(letter);
+      st.workouts.push({
+        id: uid(), letter, name: w.name, groups: [...w.groups],
+        color: COLORS[(st.workouts.length) % COLORS.length],
+        items: w.items.map(it => ({ id: uid(), load: '', ...structuredClone(it) })),
+      });
+    });
+  });
+  toast(`${p.name} adicionado ✓`);
+  go('#/');
+}
+
+// ============ arrastar e soltar (reordenar) ============
+function startDrag(handle, ev) {
+  const card = handle.closest('[data-sort-id]');
+  const list = card?.parentElement;
+  if (!list?.dataset.sortable) return;
+  ev.preventDefault();
+  const startY = ev.clientY;
+  const rect = card.getBoundingClientRect();
+  const ghost = card.cloneNode(true);
+  ghost.classList.add('drag-ghost');
+  Object.assign(ghost.style, { width: rect.width + 'px', left: rect.left + 'px', top: rect.top + 'px' });
+  document.body.appendChild(ghost);
+  card.classList.add('drag-placeholder');
+  navigator.vibrate?.(20);
+  let lastY = ev.clientY, raf = null;
+
+  const move = (e) => {
+    lastY = e.clientY;
+    ghost.style.transform = `translateY(${e.clientY - startY}px) scale(1.03)`;
+    const siblings = [...list.children].filter(c => c !== card && c.dataset.sortId);
+    const after = siblings.find(c => { const r = c.getBoundingClientRect(); return e.clientY < r.top + r.height / 2; });
+    if (after) { if (card.nextElementSibling !== after) list.insertBefore(card, after); }
+    else if (list.lastElementChild !== card) list.appendChild(card);
+  };
+  // rola a tela quando arrasta perto das bordas
+  const scroll = () => {
+    const edge = 90;
+    if (lastY < edge) window.scrollBy(0, -10);
+    else if (lastY > innerHeight - edge) window.scrollBy(0, 10);
+    raf = requestAnimationFrame(scroll);
+  };
+  raf = requestAnimationFrame(scroll);
+  const end = () => {
+    cancelAnimationFrame(raf);
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', end);
+    document.removeEventListener('pointercancel', end);
+    ghost.remove();
+    card.classList.remove('drag-placeholder');
+    const order = [...list.children].map(c => c.dataset.sortId).filter(Boolean);
+    update(st => {
+      const arr = list.dataset.sortable === 'workouts' ? st.workouts : st.workouts.find(w => w.id === list.dataset.w).items;
+      arr.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+    });
+    render();
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', end);
+  document.addEventListener('pointercancel', end);
+}
+
+document.addEventListener('pointerdown', (e) => {
+  const h = e.target.closest('[data-drag]');
+  if (h) startDrag(h, e);
+});
 
 function viewMethods() {
   return page({
@@ -864,16 +997,6 @@ const actions = {
     });
     go('#/');
   },
-  'move': (el) => {
-    const wid = location.hash.split('/')[2];
-    update(st => {
-      const items = st.workouts.find(w => w.id === wid).items;
-      const i = items.findIndex(x => x.id === el.dataset.id), j = i + +el.dataset.dir;
-      if (j < 0 || j >= items.length) return;
-      [items[i], items[j]] = [items[j], items[i]];
-    });
-    render();
-  },
   'add-ex': (el) => {
     const wid = location.hash.split('/')[2];
     const w = findWorkout(wid);
@@ -938,6 +1061,25 @@ const actions = {
     update(st => { st.session = null; });
     rest = null; stopSessionUi(); renderRest();
     go(`#/treino/${wid}`);
+  },
+  'use-program': (el) => {
+    const p = PROGRAMS.find(x => x.id === el.dataset.id);
+    if (!S().workouts.length) return applyProgram(p, false);
+    const sh = sheet(`
+      <h2>Você já tem treinos</h2>
+      <p>O que fazer com os seus treinos atuais?</p>
+      <div class="stack">
+        <button class="btn primary" data-choice="replace">Substituir pelos do ${esc(p.name)}</button>
+        <button class="btn" data-choice="add">Manter os meus e adicionar estes</button>
+        <button class="btn" data-close>Cancelar</button>
+      </div>`);
+    sh.addEventListener('click', (ev) => {
+      const c = ev.target.closest('[data-choice]')?.dataset.choice;
+      if (!c) return;
+      if (c === 'replace' && !confirm('Seus treinos atuais serão apagados (o histórico continua). Confirmar?')) return;
+      sh.close();
+      applyProgram(p, c === 'replace');
+    });
   },
   'acc-mode': (el) => { accountMode = el.dataset.mode; render(); },
   'forgot': async () => {
@@ -1019,6 +1161,8 @@ function render() {
   else if (p[0] === 'treino' && p[2] === 'item') { html = viewItem(p[1], p[3]); mount = () => mountItem(p[1], p[3]); }
   else if (p[0] === 'treino') html = viewWorkout(p[1]);
   else if (p[0] === 'exercicios') html = viewLibrary();
+  else if (p[0] === 'programas') html = viewPrograms();
+  else if (p[0] === 'programa') html = viewProgram(p[1]);
   else if (p[0] === 'exercicio') html = viewExercise(p[1]);
   else if (p[0] === 'metodos') html = viewMethods();
   else if (p[0] === 'historico') html = viewHistory();

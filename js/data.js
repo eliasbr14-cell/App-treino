@@ -246,3 +246,90 @@ export const WORKOUT_TEMPLATES = [
 ];
 
 export const COLORS = ['#22c55e', '#3b82f6', '#f97316', '#a855f7', '#ef4444', '#eab308', '#14b8a6', '#ec4899'];
+
+// ---------- Programas prontos por nível ----------
+// Cada exercício: [id, séries, repetições, descanso(s), método?, observação?]
+const P = (letter, name, groups, list) => ({
+  letter, name, groups,
+  items: list.map(([exerciseId, sets, reps, rest, method = 'normal', notes = '']) => ({ exerciseId, sets, reps, rest, method, notes })),
+});
+
+export const PROGRAMS = [
+  {
+    id: 'iniciante-ab',
+    level: 'Iniciante',
+    name: 'Iniciante · AB',
+    freq: '3x por semana, alternando A e B (ex.: seg A, qua B, sex A…)',
+    desc: 'Para quem está começando ou voltando. Máquinas na maior parte, para aprender o movimento com segurança. Use uma carga que dê para fazer todas as repetições com boa técnica, deixando 2–3 repetições “sobrando”.',
+    workouts: [
+      P('A', 'Superiores', ['peito', 'costas', 'ombros', 'biceps', 'triceps'], [
+        ['supino-maquina', 3, '12', 60], ['puxada-frente', 3, '12', 60], ['desenvolvimento-maquina', 3, '12', 60],
+        ['remada-baixa', 3, '12', 60], ['rosca-direta', 3, '12', 45], ['triceps-pulley', 3, '12', 45],
+        ['prancha', 3, '30s', 45, 'normal', 'Segure 30 segundos'],
+      ]),
+      P('B', 'Inferiores e abdômen', ['quadriceps', 'posterior', 'gluteos', 'panturrilha', 'abdomen'], [
+        ['leg-press', 3, '12', 75], ['cadeira-extensora', 3, '12', 60], ['mesa-flexora', 3, '12', 60],
+        ['elevacao-pelvica', 3, '12', 60], ['abdutora', 3, '15', 45], ['panturrilha-em-pe', 3, '15', 45],
+        ['abdominal-crunch', 3, '15', 45],
+      ]),
+    ],
+  },
+  {
+    id: 'intermediario-abc',
+    level: 'Intermediário',
+    name: 'Intermediário · ABC',
+    freq: '3 a 6x por semana (A, B, C, descanso… ou A, B, C, A, B, C)',
+    desc: 'Para quem já treina há alguns meses e domina os movimentos básicos. Mais pesos livres, mais volume e o primeiro método avançado (drop-set) no fim do treino de pernas.',
+    workouts: [
+      P('A', 'Peito, Ombros e Tríceps', ['peito', 'ombros', 'triceps'], [
+        ['supino-reto-barra', 4, '10', 90], ['supino-inclinado-halter', 3, '10', 75], ['peck-deck', 3, '12', 60],
+        ['desenvolvimento-halter', 3, '10', 75], ['elevacao-lateral', 3, '12', 45],
+        ['triceps-corda', 3, '12', 45], ['triceps-testa', 3, '10', 60],
+      ]),
+      P('B', 'Costas e Bíceps', ['costas', 'biceps'], [
+        ['puxada-frente', 4, '10', 75], ['remada-curvada', 4, '10', 90], ['remada-unilateral', 3, '10', 60],
+        ['pulldown-braco-reto', 3, '12', 45], ['face-pull', 3, '15', 45],
+        ['rosca-direta', 3, '10', 60], ['rosca-martelo', 3, '12', 45],
+      ]),
+      P('C', 'Pernas', ['quadriceps', 'posterior', 'gluteos', 'panturrilha'], [
+        ['agachamento-livre', 4, '10', 120], ['leg-press', 4, '12', 90], ['cadeira-extensora', 3, '12', 60, 'drop-set', 'Drop-set só na última série'],
+        ['stiff', 4, '10', 90], ['mesa-flexora', 3, '12', 60], ['elevacao-pelvica', 3, '10', 75],
+        ['panturrilha-sentado', 4, '15', 45],
+      ]),
+    ],
+  },
+  {
+    id: 'avancado-abcde',
+    level: 'Avançado',
+    name: 'Avançado · ABCDE',
+    freq: '5x por semana, um grupo por dia (seg a sex)',
+    desc: 'Para quem treina há mais de 1 ano com constância. Cada grupo muscular tem o seu dia, com métodos de intensidade (pirâmide, drop-set, rest-pause, FST-7). Exige boa recuperação: sono e alimentação em dia.',
+    workouts: [
+      P('A', 'Peito', ['peito'], [
+        ['supino-reto-barra', 4, '12-10-8-6', 120, 'piramide-cresc'], ['supino-inclinado-halter', 4, '10', 90],
+        ['supino-declinado', 3, '10', 90], ['crossover', 3, '12', 60], ['peck-deck', 3, '12', 60, 'drop-set'],
+        ['paralelas-peito', 3, 'falha', 75],
+      ]),
+      P('B', 'Costas', ['costas'], [
+        ['barra-fixa', 4, '8', 90], ['remada-curvada', 4, '8', 120], ['puxada-triangulo', 3, '10', 75],
+        ['remada-baixa', 3, '12', 60, 'rest-pause'], ['pulldown-braco-reto', 3, '12', 45], ['hiperextensao', 3, '15', 45],
+      ]),
+      P('C', 'Pernas', ['quadriceps', 'posterior', 'gluteos', 'panturrilha'], [
+        ['agachamento-livre', 5, '10-8-8-6-6', 150, 'piramide-cresc'], ['agachamento-hack', 4, '10', 90],
+        ['leg-press', 4, '12', 90, 'rest-pause'], ['stiff', 4, '10', 90], ['mesa-flexora', 3, '12', 60],
+        ['cadeira-extensora', 7, '10', 30, 'fst7', 'FST-7: 7 séries com 30s de descanso'],
+        ['panturrilha-em-pe', 5, '12', 45],
+      ]),
+      P('D', 'Ombros e Abdômen', ['ombros', 'abdomen'], [
+        ['desenvolvimento-halter', 4, '8', 90], ['elevacao-lateral', 4, '12', 45, 'drop-set'],
+        ['elevacao-lateral-polia', 3, '15', 45], ['crucifixo-inverso', 4, '12', 45], ['encolhimento', 4, '12', 60],
+        ['abdominal-polia', 4, '15', 45], ['elevacao-pernas', 3, '12', 45],
+      ]),
+      P('E', 'Braços', ['biceps', 'triceps'], [
+        ['rosca-direta', 4, '10', 60, 'super-serie', 'Super-série com o tríceps testa'], ['triceps-testa', 4, '10', 60, 'super-serie'],
+        ['rosca-scott', 3, '12', 60], ['triceps-corda', 3, '12', 45, 'drop-set'],
+        ['rosca-martelo', 3, '12', 45], ['triceps-frances', 3, '12', 45], ['rosca-concentrada', 3, '12', 45],
+      ]),
+    ],
+  },
+];

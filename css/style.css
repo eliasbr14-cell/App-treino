@@ -85,9 +85,6 @@ nav.bottom a.active span { filter: none; opacity: 1; }
 }
 
 .item { display: flex; gap: 10px; align-items: center; }
-.order { display: flex; flex-direction: column; align-items: center; color: var(--muted); font-size: .8rem; }
-.order button { background: none; border: 0; color: var(--muted); padding: 2px 6px; font-size: .8rem; }
-.order button:disabled { opacity: .2; }
 .tag { display: inline-block; font-size: .75rem; background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); padding: 3px 8px; border-radius: 999px; margin-top: 6px; }
 .notes { color: var(--muted); font-size: .85rem; font-style: italic; }
 
@@ -226,3 +223,22 @@ label.check input { width: 20px; height: 20px; accent-color: var(--accent); }
 .tabs { margin: 14px 0 4px; }
 .tabs .chip { flex: 1; justify-content: center; }
 a.card.row { display: flex; }
+
+/* arrastar e soltar */
+.handle { touch-action: none; cursor: grab; color: var(--muted); font-size: 1.3rem; padding: 10px 6px; margin: -10px 0 -10px -6px; display: flex; flex-direction: column; align-items: center; user-select: none; -webkit-user-select: none; }
+.handle .pos { font-size: .7rem; line-height: 1; }
+.drag-ghost { position: fixed; z-index: 50; margin: 0; pointer-events: none; box-shadow: 0 16px 40px rgb(0 0 0 / .6); border-color: var(--accent); opacity: .95; }
+.drag-placeholder { opacity: .25; border-style: dashed; }
+body:has(.drag-ghost) { user-select: none; -webkit-user-select: none; }
+
+/* próximo treino e programas */
+.workout.next { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.next-tag { font-size: .72rem; color: var(--accent); font-weight: 700; display: block; }
+.stack { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.program { display: block; }
+.letters-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 10px 0 6px; }
+.letters-row small { margin-left: 4px; }
+.prog-ex { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.prog-ex:first-of-type { margin-top: 10px; }
+.prog-ex .thumb { width: 44px; height: 44px; }
+.prog-ex small { display: block; color: var(--muted); }
