@@ -1,5 +1,6 @@
 import { GROUPS, EXERCISES, METHODS, WORKOUT_TEMPLATES, COLORS } from './data.js';
 import { getState, update, replaceState, uid } from './store.js';
+import * as cloud from './cloud.js';
 
 // ============ utilitários ============
 const app = document.getElementById('app');
@@ -133,7 +134,8 @@ function viewHome() {
 
   return page({
     title: 'Meus treinos',
-    actions: `<a class="icon-btn" href="#/config" aria-label="Configurações">⚙️</a>`,
+    actions: `<a class="icon-btn" href="#/conta" aria-label="Conta">${cloud.currentUser() ? '☁️' : '👤'}</a>
+              <a class="icon-btn" href="#/config" aria-label="Configurações">⚙️</a>`,
     body: banner + list,
     fab: workouts.length ? `<button class="fab" data-act="new-workout">+ Novo treino</button>` : '',
   });
@@ -683,11 +685,135 @@ function viewHistory() {
   });
 }
 
+// ============ conta ============
+let accountMode = 'login';
+
+function statusText() {
+  const st = cloud.status;
+  if (st.state === 'syncing') return '🔄 Sincronizando…';
+  if (st.state === 'ok') return `✅ Tudo salvo na nuvem${st.at ? ' · ' + new Date(st.at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}`;
+  if (st.state === 'error') return `⚠️ Erro ao sincronizar: ${esc(st.error)}`;
+  return '📴 Sem conexão — salva no aparelho e envia quando voltar a internet';
+}
+
+const PRIVACY = `<p class="hint">🔒 Seus dados ficam guardados no Supabase (servidor em São Paulo) e são protegidos por regras de acesso: só você vê os seus treinos. Você pode excluir sua conta e todos os seus dados a qualquer momento.</p>`;
+
+function viewAccount() {
+  if (!cloud.available()) {
+    return page({ title: 'Conta', back: '#/', body: `<div class="empty"><p>Não foi possível carregar o login. Verifique a internet e abra o app de novo.</p></div>` });
+  }
+  const u = cloud.currentUser();
+  if (u) {
+    return page({
+      title: 'Minha conta',
+      back: '#/',
+      body: `
+        <div class="card">
+          <label>Nome</label>
+          <div class="row" style="margin-top:0"><input id="pname" placeholder="Seu nome" maxlength="60" class="grow"><button class="btn" data-act="save-name">Salvar</button></div>
+          <p class="hint">${esc(u.email)}</p>
+        </div>
+        <div class="card">
+          <h3>☁️ Sincronização</h3>
+          <p id="cloud-status" class="hint">${statusText()}</p>
+          <button class="btn" data-act="sync-now">Sincronizar agora</button>
+        </div>
+        ${PRIVACY}
+        <div class="row between">
+          <button class="btn" data-act="logout">Sair</button>
+          <button class="btn danger" data-act="delete-account">Excluir minha conta</button>
+        </div>`,
+    });
+  }
+  const signup = accountMode === 'signup';
+  return page({
+    title: 'Conta',
+    back: '#/',
+    body: `
+      <div class="card">
+        <p>Entre para <b>salvar seus treinos na nuvem</b> e não perder nada se trocar de celular. Em breve: compartilhar treinos e grupo com os amigos 💪</p>
+        <div class="chips tabs">
+          <button class="chip ${signup ? '' : 'on'}" data-act="acc-mode" data-mode="login">Entrar</button>
+          <button class="chip ${signup ? 'on' : ''}" data-act="acc-mode" data-mode="signup">Criar conta</button>
+        </div>
+        <form id="aform">
+          ${signup ? `<label>Seu nome</label><input name="name" required maxlength="60" autocomplete="name">` : ''}
+          <label>E-mail</label><input name="email" type="email" required autocomplete="email">
+          <label>Senha</label><input name="password" type="password" required minlength="6" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="${signup ? 'mínimo 6 caracteres' : ''}">
+          <p class="hint" id="aerr"></p>
+          <button class="btn primary block">${signup ? 'Criar conta' : 'Entrar'}</button>
+        </form>
+        ${signup ? '' : `<button class="link" data-act="forgot">Esqueci minha senha</button>`}
+      </div>
+      ${signup ? `<p class="hint">Ao criar a conta você concorda que seus treinos sejam guardados para funcionar a sincronização.</p>` : ''}
+      ${PRIVACY}`,
+  });
+}
+
+async function mountAccount() {
+  const u = cloud.currentUser();
+  if (u) {
+    const prof = await cloud.getProfile().catch(() => null);
+    const inp = document.getElementById('pname');
+    if (inp && prof) inp.value = prof.name || '';
+    return;
+  }
+  const form = document.getElementById('aform');
+  if (!form) return;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('aerr');
+    const btn = form.querySelector('button');
+    btn.disabled = true; err.textContent = '';
+    try {
+      if (accountMode === 'signup') {
+        const r = await cloud.signUp(form.name.value.trim(), form.email.value.trim(), form.password.value);
+        if (r.needsConfirmation) {
+          sheet(`<h2>📧 Confirme seu e-mail</h2><p>Enviamos um link para <b>${esc(form.email.value)}</b>. Abra o e-mail, toque no link e depois entre aqui com seu e-mail e senha.</p><div class="row end"><button class="btn primary" data-close>Ok</button></div>`);
+          accountMode = 'login';
+          render();
+        }
+      } else {
+        await cloud.signIn(form.email.value.trim(), form.password.value);
+        toast('Bem-vindo! ☁️');
+      }
+    } catch (ex) {
+      err.textContent = authError(ex);
+    } finally { btn.disabled = false; }
+  });
+}
+
+function authError(ex) {
+  const m = (ex?.message || '').toLowerCase();
+  if (m.includes('invalid login')) return 'E-mail ou senha incorretos.';
+  if (m.includes('not confirmed')) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada).';
+  if (m.includes('already registered')) return 'Esse e-mail já tem conta. Use “Entrar”.';
+  if (m.includes('password')) return 'Senha fraca: use pelo menos 6 caracteres.';
+  if (m.includes('rate limit')) return 'Muitas tentativas. Espere alguns minutos.';
+  if (m.includes('fetch')) return 'Sem conexão com a internet.';
+  return ex?.message || 'Erro desconhecido.';
+}
+
+function openNewPassword() {
+  const sh = sheet(`
+    <form id="npform"><h2>Nova senha</h2>
+      <label>Digite a nova senha</label><input name="password" type="password" minlength="6" required autocomplete="new-password">
+      <div class="row end"><button class="btn primary">Salvar senha</button></div></form>`);
+  sh.querySelector('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    try { await cloud.setNewPassword(e.target.password.value); sh.close(); toast('Senha alterada ✓'); }
+    catch (ex) { alert(authError(ex)); }
+  });
+}
+
 function viewConfig() {
   return page({
     title: 'Configurações',
     back: '#/',
     body: `
+      <a class="card row between" href="#/conta" style="margin-top:0">
+        <span>${cloud.currentUser() ? '☁️ Conta: ' + esc(cloud.currentUser().email) : '👤 Entrar / criar conta'}</span><span>›</span>
+      </a>
       <div class="card">
         <h3>💾 Backup</h3>
         <p class="hint">Seus treinos ficam salvos neste aparelho. Exporte um backup para não perder ou para passar para outro celular.</p>
@@ -813,6 +939,28 @@ const actions = {
     rest = null; stopSessionUi(); renderRest();
     go(`#/treino/${wid}`);
   },
+  'acc-mode': (el) => { accountMode = el.dataset.mode; render(); },
+  'forgot': async () => {
+    const email = document.querySelector('#aform [name=email]')?.value.trim() || prompt('Seu e-mail:');
+    if (!email) return;
+    try { await cloud.resetPassword(email); alert('Se esse e-mail tiver conta, enviamos um link para criar uma nova senha.'); }
+    catch (ex) { alert(authError(ex)); }
+  },
+  'save-name': async () => {
+    const v = document.getElementById('pname').value.trim();
+    try { await cloud.updateName(v); toast('Nome salvo ✓'); } catch (ex) { alert(authError(ex)); }
+  },
+  'sync-now': () => cloud.sync(),
+  'logout': async () => {
+    if (!confirm('Sair da conta? Seus treinos continuam salvos na nuvem e voltam quando você entrar de novo.')) return;
+    if (await cloud.signOut()) { toast('Você saiu'); go('#/'); }
+  },
+  'delete-account': async () => {
+    if (!confirm('Excluir sua conta e TODOS os seus dados da nuvem? Isso não tem volta.')) return;
+    if (prompt('Para confirmar, digite EXCLUIR') !== 'EXCLUIR') return;
+    try { await cloud.deleteAccount(); toast('Conta excluída'); go('#/'); }
+    catch (ex) { alert('Não foi possível excluir: ' + authError(ex)); }
+  },
   'export': () => {
     const blob = new Blob([JSON.stringify(S(), null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -859,7 +1007,8 @@ function rerenderList() {
 // ============ roteador ============
 let lastRoute = '';
 function render() {
-  const hash = location.hash || '#/';
+  // links de confirmação/recuperação do Supabase chegam como #access_token=…; mostra a tela inicial
+  const hash = /access_token|error_description/.test(location.hash) ? '#/' : (location.hash || '#/');
   const p = hash.slice(2).split('/');
   const routeKey = p.slice(0, 2).join('/') + (p[3] || '');
   if (routeKey !== lastRoute) { filters.q = ''; filters.groups = null; lastRoute = routeKey; }
@@ -874,6 +1023,7 @@ function render() {
   else if (p[0] === 'metodos') html = viewMethods();
   else if (p[0] === 'historico') html = viewHistory();
   else if (p[0] === 'config') { html = viewConfig(); mount = mountConfig; }
+  else if (p[0] === 'conta') { html = viewAccount(); mount = mountAccount; }
   else if (p[0] === 'sessao') { html = viewSession(p[1]); if (S().session?.workoutId === p[1]) mount = mountSession; }
   else html = viewNotFound();
 
@@ -889,7 +1039,24 @@ function render() {
 }
 
 window.addEventListener('hashchange', render);
+
 render();
+
+cloud.initAuth((event) => {
+  if (event === 'recovery') { go('#/conta'); setTimeout(openNewPassword, 300); return; }
+  if (['SIGNED_IN', 'SIGNED_OUT', 'INITIAL_SESSION'].includes(event)) {
+    if (event === 'SIGNED_IN' && location.hash === '#/conta') return go('#/');
+    render();
+  }
+});
+// dados novos vindos de outro aparelho: redesenha, a não ser que a pessoa esteja digitando
+window.addEventListener('cloud-changed', () => {
+  if (!document.activeElement?.matches('input, textarea, select')) render();
+});
+cloud.onStatus(() => {
+  const el = document.getElementById('cloud-status');
+  if (el) el.innerHTML = statusText();
+});
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('./sw.js').catch(() => {});

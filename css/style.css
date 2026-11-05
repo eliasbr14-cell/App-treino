@@ -222,3 +222,7 @@ label.check input { width: 20px; height: 20px; accent-color: var(--accent); }
   opacity: 0; transition: .25s; pointer-events: none; white-space: nowrap;
 }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+.tabs { margin: 14px 0 4px; }
+.tabs .chip { flex: 1; justify-content: center; }
+a.card.row { display: flex; }

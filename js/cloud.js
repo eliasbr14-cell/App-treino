@@ -1,0 +1,201 @@
+// Conta e sincronização com o Supabase.
+// O app continua funcionando offline: tudo é salvo no aparelho e, quando há
+// internet e o usuário está logado, as mudanças sobem e descem do servidor.
+import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
+import { getState, save, onChange, replaceState } from './store.js';
+
+const client = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+});
+
+// tipo do item no banco -> lista no estado local
+const KINDS = { workout: 'workouts', exercise: 'customExercises', method: 'customMethods', history: 'history' };
+
+let user = null;
+export const status = { state: 'offline', at: null, error: null }; // offline | syncing | ok | error
+const statusListeners = new Set();
+export const onStatus = (fn) => statusListeners.add(fn);
+const setStatus = (state, error = null) => {
+  Object.assign(status, { state, error, at: state === 'ok' ? Date.now() : status.at });
+  statusListeners.forEach(l => l());
+};
+
+export const available = () => !!client;
+export const currentUser = () => user;
+
+function hash(obj) {
+  const str = JSON.stringify(obj);
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36) + str.length.toString(36);
+}
+
+function localItems(st) {
+  const map = new Map();
+  for (const [kind, key] of Object.entries(KINDS)) {
+    for (const item of st[key] || []) map.set(`${kind}:${item.id}`, { kind, item, h: hash(item) });
+  }
+  return map;
+}
+
+// ---------- sincronização ----------
+let running = null;
+let again = false;
+
+export function sync() {
+  if (!client || !user) return Promise.resolve();
+  if (running) { again = true; return running; }
+  running = doSync()
+    .then(() => setStatus('ok'))
+    .catch((e) => {
+      console.warn('sync', e);
+      setStatus(navigator.onLine ? 'error' : 'offline', e.message || String(e));
+    })
+    .finally(() => {
+      running = null;
+      if (again) { again = false; sync(); }
+    });
+  return running;
+}
+
+async function doSync() {
+  setStatus('syncing');
+  const st = getState();
+
+  // dados locais de outra conta neste aparelho: já estão na nuvem daquela conta, então limpa
+  if (st.sync && st.sync.userId !== user.id) {
+    replaceState({});
+  }
+  const s = getState();
+  s.sync ||= { userId: user.id, lastPulled: null, known: {} };
+  s.sync.userId = user.id;
+  const known = s.sync.known;
+
+  // 1) envia o que mudou ou foi excluído aqui
+  const local = localItems(s);
+  const rows = [];
+  for (const [key, { kind, item, h }] of local) {
+    if (known[key] !== h) rows.push({ user_id: user.id, kind, id: String(item.id), data: item, deleted: false, _key: key, _h: h });
+  }
+  for (const key of Object.keys(known)) {
+    if (!local.has(key)) {
+      const [kind, ...rest] = key.split(':');
+      rows.push({ user_id: user.id, kind, id: rest.join(':'), data: {}, deleted: true, _key: key, _h: null });
+    }
+  }
+  for (let i = 0; i < rows.length; i += 200) {
+    const chunk = rows.slice(i, i + 200);
+    const { error } = await client.from('user_items')
+      .upsert(chunk.map(({ _key, _h, ...r }) => r), { onConflict: 'user_id,kind,id' });
+    if (error) throw error;
+    chunk.forEach(r => { if (r._h) known[r._key] = r._h; else delete known[r._key]; });
+    save();
+  }
+
+  // 2) baixa o que mudou em outros aparelhos
+  let changed = false;
+  for (;;) {
+    let q = client.from('user_items').select('kind,id,data,deleted,updated_at')
+      .order('updated_at', { ascending: true }).limit(500);
+    if (s.sync.lastPulled) q = q.gt('updated_at', s.sync.lastPulled);
+    const { data, error } = await q;
+    if (error) throw error;
+    for (const r of data) {
+      const key = `${r.kind}:${r.id}`;
+      const list = s[KINDS[r.kind]];
+      if (!list) continue;
+      const idx = list.findIndex(x => String(x.id) === r.id);
+      if (r.deleted) {
+        if (idx >= 0) { list.splice(idx, 1); changed = true; }
+        delete known[key];
+      } else {
+        const h = hash(r.data);
+        if (idx < 0) { list.push(r.data); changed = true; }
+        else if (hash(list[idx]) !== h) { list[idx] = r.data; changed = true; }
+        known[key] = h;
+      }
+      s.sync.lastPulled = r.updated_at;
+    }
+    if (data.length < 500) break;
+  }
+  if (changed) s.history.sort((a, b) => b.end - a.end);
+  save();
+  if (changed) window.dispatchEvent(new Event('cloud-changed'));
+}
+
+// sobe as mudanças pouco depois de cada alteração
+let timer;
+onChange(() => {
+  if (!user) return;
+  clearTimeout(timer);
+  timer = setTimeout(sync, 1500);
+});
+window.addEventListener('online', () => sync());
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sync(); });
+
+// ---------- conta ----------
+export async function initAuth(onAuth) {
+  if (!client) { setStatus('offline', 'Biblioteca do Supabase não carregou'); return; }
+  client.auth.onAuthStateChange((event, session) => {
+    const prev = user?.id;
+    user = session?.user || null;
+    if (event === 'PASSWORD_RECOVERY') onAuth?.('recovery');
+    if (user && user.id !== prev) sync();
+    if (!user) setStatus('offline');
+    onAuth?.(event);
+  });
+}
+
+const redirectTo = () => location.origin + location.pathname;
+
+export async function signUp(name, email, password) {
+  const { data, error } = await client.auth.signUp({
+    email, password, options: { data: { name }, emailRedirectTo: redirectTo() },
+  });
+  if (error) throw error;
+  return { needsConfirmation: !data.session };
+}
+
+export async function signIn(email, password) {
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+}
+
+export async function resetPassword(email) {
+  const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo: redirectTo() });
+  if (error) throw error;
+}
+
+export async function setNewPassword(password) {
+  const { error } = await client.auth.updateUser({ password });
+  if (error) throw error;
+}
+
+export async function getProfile() {
+  if (!user) return null;
+  const { data } = await client.from('profiles').select('name, username').eq('id', user.id).maybeSingle();
+  return data;
+}
+
+export async function updateName(name) {
+  const { error } = await client.from('profiles').update({ name }).eq('id', user.id);
+  if (error) throw error;
+}
+
+// sair: sincroniza antes e limpa os dados do aparelho (eles continuam salvos na conta)
+export async function signOut() {
+  await sync();
+  if (status.state === 'error' || status.state === 'offline') {
+    if (!confirm('Algumas mudanças ainda não foram enviadas (sem conexão). Sair mesmo assim e perder essas mudanças?')) return false;
+  }
+  await client.auth.signOut();
+  replaceState({});
+  return true;
+}
+
+export async function deleteAccount() {
+  const { error } = await client.rpc('delete_my_account');
+  if (error) throw error;
+  await client.auth.signOut().catch(() => {});
+  replaceState({});
+}

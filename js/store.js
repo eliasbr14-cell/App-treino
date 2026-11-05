@@ -7,6 +7,7 @@ const empty = () => ({
   customExercises: [], // { id, name, group, equipment, tips, custom: true }
   customMethods: [],   // { id, name, desc, custom: true }
   history: [],         // { id, workoutId, name, letter, color, start, end, doneSets, totalSets }
+  sync: null,          // { userId, lastPulled, known: { 'kind:id': hash } } — controle da sincronização
   session: null,       // { workoutId, start, checks: { itemId: [bool] }, loads: { itemId: string }, swaps: { itemId: exerciseId } }
 });
 
@@ -27,8 +28,12 @@ export function save() {
   catch (e) { alert('Não foi possível salvar: ' + e.message); }
 }
 
-export function update(fn) { fn(state); save(); }
+const listeners = new Set();
+export const onChange = (fn) => listeners.add(fn);
 
-export function replaceState(next) { state = { ...empty(), ...next }; save(); }
+// alterações feitas pelo usuário: salva e avisa a sincronização
+export function update(fn) { fn(state); save(); listeners.forEach(l => l()); }
+
+export function replaceState(next) { state = { ...empty(), ...next }; save(); listeners.forEach(l => l()); }
 
 export const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
