@@ -242,3 +242,12 @@ body:has(.drag-ghost) { user-select: none; -webkit-user-select: none; }
 .prog-ex:first-of-type { margin-top: 10px; }
 .prog-ex .thumb { width: 44px; height: 44px; }
 .prog-ex small { display: block; color: var(--muted); }
+
+/* boas-vindas / login */
+.welcome { max-width: 480px; margin: 0 auto; padding: calc(env(safe-area-inset-top, 0px) + 40px) 16px 40px; }
+.hero { text-align: center; margin-bottom: 20px; }
+.hero img { border-radius: 18px; }
+.hero h1 { font-size: 1.8rem; margin: 12px 0 6px; }
+.hero p { color: var(--muted); }
+.banner-inline { background: color-mix(in srgb, var(--accent) 15%, var(--card)); border: 1px solid var(--accent); color: var(--text) !important; padding: 10px 12px; border-radius: 12px; }
+.btn.whatsapp { background: #25d366; border-color: #25d366; color: #052e16; }

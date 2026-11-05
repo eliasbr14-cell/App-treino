@@ -12,6 +12,8 @@ const client = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY, {
 const KINDS = { workout: 'workouts', exercise: 'customExercises', method: 'customMethods', history: 'history' };
 
 let user = null;
+let ready = false;          // já sabemos se tem alguém logado?
+let profileName = '';
 export const status = { state: 'offline', at: null, error: null }; // offline | syncing | ok | error
 const statusListeners = new Set();
 export const onStatus = (fn) => statusListeners.add(fn);
@@ -22,6 +24,8 @@ const setStatus = (state, error = null) => {
 
 export const available = () => !!client;
 export const currentUser = () => user;
+export const isReady = () => ready;
+export const myName = () => profileName || user?.user_metadata?.name || user?.email?.split('@')[0] || '';
 
 function hash(obj) {
   const str = JSON.stringify(obj);
@@ -139,6 +143,9 @@ export async function initAuth(onAuth) {
   client.auth.onAuthStateChange((event, session) => {
     const prev = user?.id;
     user = session?.user || null;
+    ready = true;
+    if (user && user.id !== prev) getProfile().then(p => { if (p?.name) profileName = p.name; }).catch(() => {});
+    if (!user) profileName = '';
     if (event === 'PASSWORD_RECOVERY') onAuth?.('recovery');
     if (user && user.id !== prev) sync();
     if (!user) setStatus('offline');
@@ -180,6 +187,7 @@ export async function getProfile() {
 export async function updateName(name) {
   const { error } = await client.from('profiles').update({ name }).eq('id', user.id);
   if (error) throw error;
+  profileName = name;
 }
 
 // sair: sincroniza antes e limpa os dados do aparelho (eles continuam salvos na conta)

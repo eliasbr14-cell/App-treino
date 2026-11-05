@@ -128,6 +128,7 @@ function viewHome() {
       </a>
       <button class="play" data-act="start" data-id="${w.id}" aria-label="Iniciar treino">▶</button>
     </div>`).join('') + `</div>
+    <button class="btn block" data-act="share-all">📤 Mandar meus treinos pra um amigo</button>
     <a class="btn block dashed" href="#/programas">📋 Ver treinos prontos (iniciante, intermediário, avançado)</a>` : `
     <div class="empty">
       <div class="big">🏋️</div>
@@ -228,7 +229,8 @@ function viewWorkout(id) {
   return page({
     title: `${badge(w)} ${esc(w.name)}`,
     back: '#/',
-    actions: `<button class="icon-btn" data-act="edit-workout" data-id="${w.id}" aria-label="Editar">✏️</button>
+    actions: `<button class="icon-btn" data-act="share" data-id="${w.id}" aria-label="Compartilhar">📤</button>
+              <button class="icon-btn" data-act="edit-workout" data-id="${w.id}" aria-label="Editar">✏️</button>
               <button class="icon-btn" data-act="delete-workout" data-id="${w.id}" aria-label="Excluir">🗑️</button>`,
     body: `
       ${w.items.length ? `<button class="btn primary block" data-act="start" data-id="${w.id}">▶ Iniciar treino</button>` : ''}
@@ -442,6 +444,127 @@ function openSwap(wid, itemId, permanent) {
   });
 }
 
+// ============ compartilhar por link ============
+const b64url = (bytes) => {
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+const unb64url = (str) => Uint8Array.from(atob(str.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+
+async function packShare(obj) {
+  const bytes = new TextEncoder().encode(JSON.stringify(obj));
+  if ('CompressionStream' in window) {
+    const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return 'z' + b64url(new Uint8Array(await new Response(stream).arrayBuffer()));
+  }
+  return 'j' + b64url(bytes);
+}
+
+async function unpackShare(code) {
+  const bytes = unb64url(code.slice(1));
+  let text;
+  if (code[0] === 'z') {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    text = await new Response(stream).text();
+  } else text = new TextDecoder().decode(bytes);
+  const data = JSON.parse(text);
+  if (!Array.isArray(data.w) || !data.w.length) throw new Error('link inválido');
+  return data;
+}
+
+function pendingImport() {
+  try { return localStorage.getItem('app-treino:import'); } catch { return null; }
+}
+function clearPendingImport() {
+  try { localStorage.removeItem('app-treino:import'); } catch {}
+}
+
+async function shareWorkouts(ids) {
+  const ws = S().workouts.filter(w => ids.includes(w.id));
+  if (!ws.length) return;
+  const exIds = new Set(ws.flatMap(w => w.items.map(i => i.exerciseId)));
+  const mIds = new Set(ws.flatMap(w => w.items.map(i => i.method)));
+  const payload = {
+    v: 1,
+    from: cloud.myName(),
+    w: ws.map(w => ({
+      letter: w.letter, name: w.name, color: w.color, groups: w.groups || [],
+      items: w.items.map(i => ({ exerciseId: i.exerciseId, sets: i.sets, reps: i.reps, rest: i.rest, method: i.method, notes: i.notes || '' })),
+    })),
+    ce: S().customExercises.filter(e => exIds.has(e.id)),
+    cm: S().customMethods.filter(m => mIds.has(m.id)),
+  };
+  const url = `${location.origin}${location.pathname}#/importar/${await packShare(payload)}`;
+  const label = ws.length === 1 ? `o treino ${ws[0].letter} – ${ws[0].name}` : `${ws.length} treinos (${ws.map(w => w.letter).join(', ')})`;
+  const text = `💪 ${payload.from || 'Um amigo'} te mandou ${label} no app Meu Treino!\nToca no link pra adicionar:\n${url}`;
+  const sh = sheet(`
+    <h2>📤 Compartilhar ${esc(label)}</h2>
+    <p class="hint">Quem abrir o link vê o treino e adiciona na conta dele com um toque. Cargas não vão junto, cada um usa a sua.</p>
+    <div class="stack">
+      <a class="btn whatsapp" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Enviar no WhatsApp</a>
+      ${navigator.share ? `<button class="btn" data-share-native>Outros apps…</button>` : ''}
+      <button class="btn" data-copy>🔗 Copiar link</button>
+      <button class="btn" data-close>Fechar</button>
+    </div>`);
+  sh.querySelector('[data-share-native]')?.addEventListener('click', () => navigator.share({ text }).catch(() => {}));
+  sh.querySelector('[data-copy]').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(url); toast('Link copiado ✓'); }
+    catch { prompt('Copie o link:', url); }
+  });
+}
+
+function viewImport() {
+  return page({
+    title: '📩 Treino recebido',
+    back: '#/',
+    nav: false,
+    body: `<div id="import-box"><div class="empty"><p>Abrindo treino…</p></div></div>`,
+  });
+}
+
+async function mountImport(code) {
+  const box = document.getElementById('import-box');
+  let data;
+  try { data = await unpackShare(code); }
+  catch {
+    clearPendingImport();
+    box.innerHTML = `<div class="empty"><p>Esse link de treino está incompleto ou quebrado. Peça pra pessoa mandar de novo.</p><a class="btn" href="#/">Voltar</a></div>`;
+    return;
+  }
+  const exName = (id) => findExercise(id)?.name || data.ce?.find(e => e.id === id)?.name || 'Exercício';
+  box.innerHTML = `
+    <div class="card"><p><b>${esc(data.from || 'Um amigo')}</b> te mandou ${data.w.length === 1 ? 'este treino' : 'estes treinos'}:</p></div>
+    ${data.w.map(w => `
+      <div class="card">
+        <div class="row" style="margin-top:0">${badge(w)}<h3>${esc(w.name)}</h3></div>
+        ${w.items.map(it => {
+          const e = findExercise(it.exerciseId);
+          return `<div class="prog-ex">${thumb(e)}<span class="grow"><b>${esc(exName(it.exerciseId))}</b>
+            <small>${it.sets} × ${esc(it.reps)} · ⏱ ${it.rest}s${it.method && it.method !== 'normal' ? ' · ' + esc(findMethod(it.method)?.name || data.cm?.find(m => m.id === it.method)?.name || '') : ''}</small></span></div>`;
+        }).join('')}
+      </div>`).join('')}
+    <div class="stack">
+      <button class="btn primary" data-import="add">Adicionar aos meus treinos</button>
+      ${S().workouts.length ? `<button class="btn" data-import="replace">Substituir os meus por estes</button>` : ''}
+      <button class="btn" data-import="no">Agora não</button>
+    </div>`;
+  box.addEventListener('click', (ev) => {
+    const c = ev.target.closest('[data-import]')?.dataset.import;
+    if (!c) return;
+    clearPendingImport();
+    if (c === 'no') return go('#/');
+    if (c === 'replace' && !confirm('Seus treinos atuais serão apagados (o histórico continua). Confirmar?')) return;
+    update(st => {
+      for (const e of data.ce || []) if (!st.customExercises.some(x => x.id === e.id)) st.customExercises.push({ ...e, custom: true });
+      for (const m of data.cm || []) if (!st.customMethods.some(x => x.id === m.id)) st.customMethods.push({ ...m, custom: true });
+    });
+    addWorkouts(data.w, c === 'replace');
+    toast('Treino adicionado ✓');
+    go('#/');
+  });
+}
+
 // ============ treinos prontos ============
 function nextWorkout() {
   const { workouts, history } = S();
@@ -495,24 +618,28 @@ function viewProgram(id) {
 }
 
 function applyProgram(p, replace) {
+  addWorkouts(p.workouts, replace);
+  toast(`${p.name} adicionado ✓`);
+  go('#/');
+}
+
+function addWorkouts(list, replace) {
   update(st => {
     if (replace) {
       st.workouts = [];
       st.session = null;
     }
     const used = new Set(st.workouts.map(w => w.letter));
-    p.workouts.forEach((w, i) => {
+    list.forEach((w) => {
       const letter = used.has(w.letter) ? (LETTERS.find(l => !used.has(l)) || w.letter) : w.letter;
       used.add(letter);
       st.workouts.push({
         id: uid(), letter, name: w.name, groups: [...w.groups],
-        color: COLORS[(st.workouts.length) % COLORS.length],
-        items: w.items.map(it => ({ id: uid(), load: '', ...structuredClone(it) })),
+        color: w.color || COLORS[(st.workouts.length) % COLORS.length],
+        items: w.items.map(it => ({ id: uid(), load: '', notes: '', method: 'normal', ...structuredClone(it) })),
       });
     });
   });
-  toast(`${p.name} adicionado ✓`);
-  go('#/');
 }
 
 // ============ arrastar e soltar (reordenar) ============
@@ -858,14 +985,14 @@ function viewAccount() {
         </div>`,
     });
   }
+  return viewWelcome();
+}
+
+function authCard() {
   const signup = accountMode === 'signup';
-  return page({
-    title: 'Conta',
-    back: '#/',
-    body: `
+  return `
       <div class="card">
-        <p>Entre para <b>salvar seus treinos na nuvem</b> e não perder nada se trocar de celular. Em breve: compartilhar treinos e grupo com os amigos 💪</p>
-        <div class="chips tabs">
+        <div class="chips tabs" style="margin-top:0">
           <button class="chip ${signup ? '' : 'on'}" data-act="acc-mode" data-mode="login">Entrar</button>
           <button class="chip ${signup ? 'on' : ''}" data-act="acc-mode" data-mode="signup">Criar conta</button>
         </div>
@@ -879,8 +1006,22 @@ function viewAccount() {
         ${signup ? '' : `<button class="link" data-act="forgot">Esqueci minha senha</button>`}
       </div>
       ${signup ? `<p class="hint">Ao criar a conta você concorda que seus treinos sejam guardados para funcionar a sincronização.</p>` : ''}
-      ${PRIVACY}`,
-  });
+      ${PRIVACY}`;
+}
+
+// Primeira tela: login antes de tudo
+function viewWelcome() {
+  const pending = pendingImport();
+  return `
+    <main class="welcome">
+      <div class="hero">
+        <img src="icons/icon.svg" alt="" width="72" height="72">
+        <h1>Meu Treino</h1>
+        <p>Seus treinos A, B, C do seu jeito, com demonstração de cada exercício e cronômetro de descanso.</p>
+        ${pending ? `<p class="banner-inline">📩 Você recebeu um treino! Entre ou crie sua conta para adicionar.</p>` : ''}
+      </div>
+      ${authCard()}
+    </main>`;
 }
 
 async function mountAccount() {
@@ -1062,6 +1203,8 @@ const actions = {
     rest = null; stopSessionUi(); renderRest();
     go(`#/treino/${wid}`);
   },
+  'share': (el) => shareWorkouts([el.dataset.id]),
+  'share-all': () => shareWorkouts(S().workouts.map(w => w.id)),
   'use-program': (el) => {
     const p = PROGRAMS.find(x => x.id === el.dataset.id);
     if (!S().workouts.length) return applyProgram(p, false);
@@ -1156,7 +1299,24 @@ function render() {
   if (routeKey !== lastRoute) { filters.q = ''; filters.groups = null; lastRoute = routeKey; }
 
   let html, mount;
+  // links de treino compartilhado: guarda para importar depois do login
+  if (p[0] === 'importar' && p[1]) {
+    try { localStorage.setItem('app-treino:import', p[1]); } catch {}
+  }
+  if (cloud.available() && !cloud.isReady()) {
+    app.innerHTML = `<main class="welcome"><div class="hero"><img src="icons/icon.svg" alt="" width="72" height="72"><p>Carregando…</p></div></main>`;
+    return;
+  }
+  if (cloud.available() && !cloud.currentUser()) {
+    app.innerHTML = viewWelcome();
+    app.dataset.hash = '';
+    mountAccount();
+    document.getElementById('rest')?.remove();
+    return;
+  }
+  if (!p[0] && pendingImport()) return go('#/importar/' + pendingImport());
   if (!p[0]) html = viewHome();
+  else if (p[0] === 'importar') { html = viewImport(); mount = () => mountImport(p[1]); }
   else if (p[0] === 'treino' && p[2] === 'add') html = viewAdd(p[1]);
   else if (p[0] === 'treino' && p[2] === 'item') { html = viewItem(p[1], p[3]); mount = () => mountItem(p[1], p[3]); }
   else if (p[0] === 'treino') html = viewWorkout(p[1]);
@@ -1190,6 +1350,7 @@ cloud.initAuth((event) => {
   if (event === 'recovery') { go('#/conta'); setTimeout(openNewPassword, 300); return; }
   if (['SIGNED_IN', 'SIGNED_OUT', 'INITIAL_SESSION'].includes(event)) {
     if (event === 'SIGNED_IN' && location.hash === '#/conta') return go('#/');
+    if (event === 'SIGNED_OUT') { if (location.hash !== '#/') return go('#/'); }
     render();
   }
 });
