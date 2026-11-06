@@ -262,3 +262,8 @@ body:has(.drag-ghost) { user-select: none; -webkit-user-select: none; }
 
 .user-row { display: flex; align-items: center; gap: 10px; }
 .user-row small { display: block; color: var(--muted); }
+
+.at-input { display: flex; align-items: center; background: var(--card2); border: 1px solid var(--line); border-radius: 12px; }
+.at-input:focus-within { border-color: var(--accent); }
+.at-input span { padding-left: 12px; color: var(--muted); font-weight: 700; }
+.at-input input { border: 0; background: none; padding-left: 4px; }

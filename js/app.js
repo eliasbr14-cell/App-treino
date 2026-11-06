@@ -568,11 +568,10 @@ async function mountImport(code) {
 }
 
 // ============ painel de testes (admin) ============
-const randomPassword = () => {
-  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
-  return Array.from(crypto.getRandomValues(new Uint8Array(8)), b => chars[b % chars.length]).join('');
-};
 const appUrl = () => location.origin + location.pathname;
+
+const suggestUsername = (name) => name.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  .trim().replace(/\s+/g, '.').replace(/[^a-z0-9_.]/g, '').slice(0, 24);
 
 function viewAdmin() {
   return page({
@@ -581,18 +580,17 @@ function viewAdmin() {
     nav: false,
     body: `
       <div class="card">
-        <h3>Criar login para alguém testar</h3>
+        <h3>Criar usuário</h3>
         <form id="newuser">
-          <label>Nome</label><input name="name" maxlength="60" required placeholder="Ex.: João">
-          <label>E-mail</label><input name="email" type="email" required autocomplete="off" placeholder="email@exemplo.com">
-          <label>Senha</label>
-          <div class="row" style="margin-top:0"><input name="password" required minlength="6" class="grow" value="${randomPassword()}" autocomplete="off"><button type="button" class="btn" data-gen>🎲</button></div>
+          <label>Nome</label><input name="name" maxlength="60" required placeholder="Ex.: Rian">
+          <label>Usuário</label>
+          <div class="at-input"><span>@</span><input name="username" required pattern="[a-z0-9_.]{3,24}" maxlength="24" autocapitalize="none" spellcheck="false" placeholder="rian"></div>
+          <p class="hint">Senha inicial: <b>${cloud.DEFAULT_PASSWORD}</b> — no primeiro acesso o app pede pra pessoa criar a senha dela.</p>
           <p class="hint" id="nuerr"></p>
-          <button class="btn primary block">Criar login</button>
+          <button class="btn primary block">Criar usuário</button>
         </form>
-        <p class="hint">A conta já nasce confirmada, sem e-mail. A pessoa pode usar até um e-mail inventado, só precisa lembrar dele pra entrar.</p>
       </div>
-      <h3 class="sec">Contas</h3>
+      <h3 class="sec">Usuários</h3>
       <div id="users"><p class="hint">Carregando…</p></div>`,
   });
 }
@@ -600,17 +598,19 @@ function viewAdmin() {
 async function mountAdmin() {
   if (!(await cloud.amIAdmin())) { go('#/conta'); return; }
   const form = document.getElementById('newuser');
-  form.querySelector('[data-gen]').addEventListener('click', () => { form.password.value = randomPassword(); });
+  let touched = false;
+  form.username.addEventListener('input', () => { touched = true; form.username.value = form.username.value.toLowerCase().replace(/[^a-z0-9_.]/g, ''); });
+  form.name.addEventListener('input', () => { if (!touched) form.username.value = suggestUsername(form.name.value); });
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const err = document.getElementById('nuerr');
     const btn = form.querySelector('button.primary');
     btn.disabled = true; err.textContent = '';
-    const name = form.name.value.trim(), email = form.email.value.trim().toLowerCase(), password = form.password.value;
+    const name = form.name.value.trim(), username = form.username.value.trim();
     try {
-      await cloud.adminCreateUser(email, password, name);
-      showCredentials(name, email, password);
-      form.reset(); form.password.value = randomPassword();
+      await cloud.adminCreateLogin(username, name);
+      showCredentials(name, username);
+      form.reset(); touched = false;
       loadUsers();
     } catch (ex) { err.textContent = ex.message || String(ex); }
     finally { btn.disabled = false; }
@@ -618,11 +618,11 @@ async function mountAdmin() {
   loadUsers();
 }
 
-function showCredentials(name, email, password, isReset = false) {
-  const text = `💪 ${isReset ? 'Sua nova senha do' : 'Seu acesso ao'} app Meu Treino${name ? ', ' + name : ''}!\n\n📲 Abre: ${appUrl()}\n📧 E-mail: ${email}\n🔑 Senha: ${password}\n\nNa tela inicial toca em "Entrar".`;
+function showCredentials(name, username, isReset = false) {
+  const text = `💪 ${isReset ? 'Sua senha do app Meu Treino foi resetada' : 'Seu acesso ao app Meu Treino'}${name ? ', ' + name : ''}!\n\n📲 Abre: ${appUrl()}\n👤 Usuário: @${username}\n🔑 Senha: ${cloud.DEFAULT_PASSWORD}\n\nNo primeiro acesso o app pede pra você criar sua própria senha.`;
   const sh = sheet(`
-    <h2>✅ ${isReset ? 'Senha alterada' : 'Login criado'}</h2>
-    <div class="card"><p>📧 <b>${esc(email)}</b><br>🔑 <b>${esc(password)}</b></p></div>
+    <h2>✅ ${isReset ? 'Senha resetada' : 'Usuário criado'}</h2>
+    <div class="card"><p>👤 <b>@${esc(username)}</b><br>🔑 <b>${cloud.DEFAULT_PASSWORD}</b> <small>(troca no primeiro acesso)</small></p></div>
     <div class="stack">
       <a class="btn whatsapp" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Enviar no WhatsApp</a>
       <button class="btn" data-copy>📋 Copiar mensagem</button>
@@ -637,18 +637,18 @@ async function loadUsers() {
   const box = document.getElementById('users');
   if (!box) return;
   try {
-    const users = await cloud.adminListUsers();
+    const users = await cloud.adminListLogins();
     const fmt = (t) => t ? new Date(t).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'nunca';
     box.innerHTML = users.map(u => `
       <div class="card user-row">
-        <div class="grow"><b>${esc(u.name || '—')}</b><small>${esc(u.email)}</small>
-          <small>criada ${fmt(u.created_at)} · último acesso ${fmt(u.last_sign_in_at)}</small></div>
-        <button class="btn small" data-reset="${u.id}" data-email="${esc(u.email)}" data-name="${esc(u.name || '')}">🔑 Nova senha</button>
-      </div>`).join('') || '<p class="hint">Nenhuma conta.</p>';
+        <div class="grow"><b>${esc(u.name || '—')}</b>
+          <small>${u.username ? '@' + esc(u.username) : esc(u.email)}${u.must_change_password ? ' · ⏳ ainda não trocou a senha' : ''}</small>
+          <small>criado ${fmt(u.created_at)} · último acesso ${fmt(u.last_sign_in_at)}</small></div>
+        ${u.username ? `<button class="btn small" data-reset="${u.id}" data-username="${esc(u.username)}" data-name="${esc(u.name || '')}">🔑 Resetar</button>` : ''}
+      </div>`).join('') || '<p class="hint">Nenhum usuário.</p>';
     box.querySelectorAll('[data-reset]').forEach(b => b.addEventListener('click', async () => {
-      if (!confirm(`Gerar uma nova senha para ${b.dataset.email}?`)) return;
-      const pw = randomPassword();
-      try { await cloud.adminSetPassword(b.dataset.reset, pw); showCredentials(b.dataset.name, b.dataset.email, pw, true); }
+      if (!confirm(`Voltar a senha de @${b.dataset.username} para ${cloud.DEFAULT_PASSWORD}?`)) return;
+      try { await cloud.adminResetLogin(b.dataset.reset); showCredentials(b.dataset.name, b.dataset.username, true); loadUsers(); }
       catch (ex) { alert(ex.message || ex); }
     }));
   } catch (ex) { box.innerHTML = `<p class="hint">Erro: ${esc(ex.message || ex)}</p>`; }
@@ -1089,7 +1089,8 @@ function viewAccount() {
         <div class="card">
           <label>Nome</label>
           <div class="row" style="margin-top:0"><input id="pname" placeholder="Seu nome" maxlength="60" class="grow"><button class="btn" data-act="save-name">Salvar</button></div>
-          <p class="hint">${esc(u.email)}</p>
+          <p class="hint">${cloud.myUsername() ? '@' + esc(cloud.myUsername()) : esc(u.email)}</p>
+          <button class="btn small" data-act="change-pw">🔑 Trocar senha</button>
         </div>
         <div class="card">
           <h3>☁️ Sincronização</h3>
@@ -1108,24 +1109,55 @@ function viewAccount() {
 }
 
 function authCard() {
-  const signup = accountMode === 'signup';
   return `
       <div class="card">
-        <div class="chips tabs" style="margin-top:0">
-          <button class="chip ${signup ? '' : 'on'}" data-act="acc-mode" data-mode="login">Entrar</button>
-          <button class="chip ${signup ? 'on' : ''}" data-act="acc-mode" data-mode="signup">Criar conta</button>
-        </div>
         <form id="aform">
-          ${signup ? `<label>Seu nome</label><input name="name" required maxlength="60" autocomplete="name">` : ''}
-          <label>E-mail</label><input name="email" type="email" required autocomplete="email">
-          <label>Senha</label><input name="password" type="password" required minlength="6" autocomplete="${signup ? 'new-password' : 'current-password'}" placeholder="${signup ? 'mínimo 6 caracteres' : ''}">
+          <label>Usuário</label><input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="@seu.usuario">
+          <label>Senha</label><input name="password" type="password" required autocomplete="current-password">
           <p class="hint" id="aerr"></p>
-          <button class="btn primary block">${signup ? 'Criar conta' : 'Entrar'}</button>
+          <button class="btn primary block">Entrar</button>
         </form>
-        ${signup ? '' : `<button class="link" data-act="forgot">Esqueci minha senha</button>`}
+        <p class="hint center">Ainda não tem acesso? Peça pro administrador criar seu usuário.</p>
       </div>
-      ${signup ? `<p class="hint">Ao criar a conta você concorda que seus treinos sejam guardados para funcionar a sincronização.</p>` : ''}
       ${PRIVACY}`;
+}
+
+// Primeiro acesso: troca obrigatória da senha padrão
+function viewForceChange() {
+  return `
+    <main class="welcome">
+      <div class="hero">
+        <div class="big">🔑</div>
+        <h1>Crie sua senha</h1>
+        <p>Bem-vindo${cloud.myName() ? ', ' + esc(cloud.myName()) : ''}! Você entrou com a senha padrão. Crie uma senha só sua para continuar.</p>
+      </div>
+      <div class="card">
+        <form id="fcform">
+          <label>Nova senha</label><input name="p1" type="password" required minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+          <label>Repita a nova senha</label><input name="p2" type="password" required minlength="6" autocomplete="new-password">
+          <p class="hint" id="fcerr"></p>
+          <button class="btn primary block">Salvar e entrar</button>
+        </form>
+        <button class="link" data-act="logout-now">Sair</button>
+      </div>
+    </main>`;
+}
+
+function mountForceChange() {
+  const form = document.getElementById('fcform');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('fcerr');
+    if (form.p1.value !== form.p2.value) { err.textContent = 'As senhas não são iguais.'; return; }
+    if (form.p1.value.toUpperCase() === cloud.DEFAULT_PASSWORD) { err.textContent = 'Escolha uma senha diferente da padrão.'; return; }
+    const btn = form.querySelector('button'); btn.disabled = true; err.textContent = '';
+    try {
+      await cloud.changeMyPassword(form.p1.value);
+      toast('Senha criada ✓ Bora treinar!');
+      go('#/'); render();
+    } catch (ex) { err.textContent = authError(ex); }
+    finally { btn.disabled = false; }
+  });
 }
 
 // Primeira tela: login antes de tudo
@@ -1160,17 +1192,7 @@ async function mountAccount() {
     const btn = form.querySelector('button');
     btn.disabled = true; err.textContent = '';
     try {
-      if (accountMode === 'signup') {
-        const r = await cloud.signUp(form.name.value.trim(), form.email.value.trim(), form.password.value);
-        if (r.needsConfirmation) {
-          sheet(`<h2>📧 Confirme seu e-mail</h2><p>Enviamos um link para <b>${esc(form.email.value)}</b>. Abra o e-mail, toque no link e depois entre aqui com seu e-mail e senha.</p><div class="row end"><button class="btn primary" data-close>Ok</button></div>`);
-          accountMode = 'login';
-          render();
-        }
-      } else {
-        await cloud.signIn(form.email.value.trim(), form.password.value);
-        toast('Bem-vindo! ☁️');
-      }
+      await cloud.signIn(cloud.loginToEmail(form.login.value), form.password.value);
     } catch (ex) {
       err.textContent = authError(ex);
     } finally { btn.disabled = false; }
@@ -1179,7 +1201,7 @@ async function mountAccount() {
 
 function authError(ex) {
   const m = (ex?.message || '').toLowerCase();
-  if (m.includes('invalid login')) return 'E-mail ou senha incorretos.';
+  if (m.includes('invalid login')) return 'Usuário ou senha incorretos.';
   if (m.includes('not confirmed')) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada).';
   if (m.includes('already registered')) return 'Esse e-mail já tem conta. Use “Entrar”.';
   if (m.includes('password')) return 'Senha fraca: use pelo menos 6 caracteres.';
@@ -1359,6 +1381,23 @@ const actions = {
       applyProgram(p, c === 'replace');
     });
   },
+  'logout-now': async () => { await cloud.signOut(); },
+  'change-pw': () => {
+    const sh = sheet(`
+      <form id="cpform"><h2>🔑 Trocar senha</h2>
+        <label>Nova senha</label><input name="p1" type="password" minlength="6" required autocomplete="new-password">
+        <label>Repita a nova senha</label><input name="p2" type="password" minlength="6" required autocomplete="new-password">
+        <p class="hint" id="cperr"></p>
+        <div class="row end"><button type="button" class="btn" data-close>Cancelar</button><button class="btn primary">Salvar</button></div></form>`);
+    const f = sh.querySelector('form');
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const err = f.querySelector('#cperr');
+      if (f.p1.value !== f.p2.value) { err.textContent = 'As senhas não são iguais.'; return; }
+      try { await cloud.changeMyPassword(f.p1.value); sh.close(); toast('Senha alterada ✓'); }
+      catch (ex) { err.textContent = authError(ex); }
+    });
+  },
   'acc-mode': (el) => { accountMode = el.dataset.mode; render(); },
   'forgot': async () => {
     const email = document.querySelector('#aform [name=email]')?.value.trim() || prompt('Seu e-mail:');
@@ -1449,6 +1488,12 @@ function render() {
     document.getElementById('rest')?.remove();
     return;
   }
+  if (cloud.available() && cloud.mustChangePassword()) {
+    app.innerHTML = viewForceChange();
+    app.dataset.hash = '';
+    mountForceChange();
+    return;
+  }
   if (!p[0] && pendingImport()) return go('#/importar/' + pendingImport());
   if (!p[0]) html = viewHome();
   else if (p[0] === 'importar') { html = viewImport(); mount = () => mountImport(p[1]); }
@@ -1484,7 +1529,7 @@ render();
 
 cloud.initAuth((event) => {
   if (event === 'recovery') { go('#/conta'); setTimeout(openNewPassword, 300); return; }
-  if (['SIGNED_IN', 'SIGNED_OUT', 'INITIAL_SESSION'].includes(event)) {
+  if (['SIGNED_IN', 'SIGNED_OUT', 'INITIAL_SESSION', 'PROFILE'].includes(event)) {
     if (event === 'SIGNED_IN' && location.hash === '#/conta') return go('#/');
     if (event === 'SIGNED_OUT') { if (location.hash !== '#/') return go('#/'); }
     render();

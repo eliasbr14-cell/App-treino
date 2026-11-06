@@ -14,6 +14,9 @@ const KINDS = { workout: 'workouts', exercise: 'customExercises', method: 'custo
 let user = null;
 let ready = false;          // já sabemos se tem alguém logado?
 let profileName = '';
+let profile = null;          // { name, username, must_change_password }
+let profileReady = false;
+const MC_KEY = 'app-treino:must-change';
 export const status = { state: 'offline', at: null, error: null }; // offline | syncing | ok | error
 const statusListeners = new Set();
 export const onStatus = (fn) => statusListeners.add(fn);
@@ -24,7 +27,13 @@ const setStatus = (state, error = null) => {
 
 export const available = () => !!client;
 export const currentUser = () => user;
-export const isReady = () => ready;
+export const isReady = () => ready && (!user || profileReady);
+export const myUsername = () => profile?.username || '';
+// precisa trocar a senha padrão? (guardado também no aparelho para valer offline)
+export const mustChangePassword = () => {
+  if (profile) return !!profile.must_change_password;
+  try { return localStorage.getItem(MC_KEY) === user?.id; } catch { return false; }
+};
 export const myName = () => profileName || user?.user_metadata?.name || user?.email?.split('@')[0] || '';
 
 function hash(obj) {
@@ -144,8 +153,23 @@ export async function initAuth(onAuth) {
     const prev = user?.id;
     user = session?.user || null;
     ready = true;
-    if (user && user.id !== prev) getProfile().then(p => { if (p?.name) profileName = p.name; }).catch(() => {});
-    if (!user) profileName = '';
+    if (user && user.id !== prev) {
+      profileReady = false; profile = null;
+      // fora do callback (o supabase-js trava se chamar a API dentro dele)
+      setTimeout(async () => {
+        try {
+          profile = await getProfile();
+          if (profile?.name) profileName = profile.name;
+          try {
+            if (profile?.must_change_password) localStorage.setItem(MC_KEY, user.id);
+            else if (profile) localStorage.removeItem(MC_KEY);
+          } catch {}
+        } catch {}
+        profileReady = true;
+        onAuth?.('PROFILE');
+      });
+    }
+    if (!user) { profileName = ''; profile = null; profileReady = true; }
     if (event === 'PASSWORD_RECOVERY') onAuth?.('recovery');
     if (user && user.id !== prev) sync();
     if (!user) setStatus('offline');
@@ -180,7 +204,7 @@ export async function setNewPassword(password) {
 
 export async function getProfile() {
   if (!user) return null;
-  const { data } = await client.from('profiles').select('name, username').eq('id', user.id).maybeSingle();
+  const { data } = await client.from('profiles').select('name, username, must_change_password').eq('id', user.id).maybeSingle();
   return data;
 }
 
@@ -219,19 +243,34 @@ export async function amIAdmin() {
   return v;
 }
 
-export async function adminCreateUser(email, password, name) {
-  const { data, error } = await client.rpc('admin_create_user', { p_email: email, p_password: password, p_name: name });
+export const DEFAULT_PASSWORD = 'ABC123';
+
+export async function adminCreateLogin(username, name) {
+  const { data, error } = await client.rpc('admin_create_login', { p_username: username, p_name: name });
   if (error) throw error;
   return data;
 }
 
-export async function adminListUsers() {
-  const { data, error } = await client.rpc('admin_list_users');
+export async function adminListLogins() {
+  const { data, error } = await client.rpc('admin_list_logins');
   if (error) throw error;
   return data;
 }
 
-export async function adminSetPassword(userId, password) {
-  const { error } = await client.rpc('admin_set_password', { p_user: userId, p_password: password });
+export async function adminResetLogin(userId) {
+  const { error } = await client.rpc('admin_reset_login', { p_user: userId });
   if (error) throw error;
 }
+
+export async function changeMyPassword(password) {
+  const { error } = await client.rpc('change_my_password', { p_new: password });
+  if (error) throw error;
+  if (profile) profile.must_change_password = false;
+  try { localStorage.removeItem(MC_KEY); } catch {}
+}
+
+// "@rian" ou "rian" -> e-mail interno; e-mail de verdade passa direto
+export const loginToEmail = (v) => {
+  const t = v.trim().toLowerCase().replace(/^@/, '');
+  return t.includes('@') ? t : `${t}@treino.local`;
+};

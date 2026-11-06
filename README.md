@@ -14,7 +14,7 @@ App de celular (PWA) para montar treinos **A, B, C…** totalmente personalizado
 - **Trocar por variação**: a academia não tem o aparelho ou ele está ocupado? No modo treino, toque em 🔄 *Trocar* e escolha outra variação (ex.: tríceps na máquina → pulley, corda, testa, francês…). A troca pode valer só para hoje ou ficar salva no treino.
 - **Modo treino**: checklist das séries, cronômetro de descanso automático (vibra e apita), tela sempre ligada, carga editável na hora.
 - **Histórico** dos treinos feitos e **backup** (exportar/importar).
-- **Login logo na entrada** (Supabase): treinos e histórico sincronizados entre aparelhos; depois de logado funciona offline.
+- **Login por @usuário** logo na entrada (Supabase): o administrador cria o usuário no *Painel de testes* com a senha padrão `ABC123` e manda o acesso no WhatsApp; no primeiro acesso o app obriga a criar uma senha própria. Treinos e histórico sincronizam entre aparelhos e, depois de logado, funciona offline.
 - **Compartilhar por link no WhatsApp**: mande um treino (📤 na tela do treino) ou todos; o amigo abre o link, entra na conta e adiciona com um toque. Cargas não vão junto.
 - Funciona **offline** depois de aberto uma vez.
 
