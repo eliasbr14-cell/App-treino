@@ -304,3 +304,29 @@ export async function claimUsername(username) {
 }
 // perfil carregou e não tem @ (conta antiga criada com e-mail)
 export const needsUsername = () => !!(user && profile && !profile.username);
+
+// ---------- e-mail de recuperação ----------
+export async function getRecoveryEmail() {
+  if (!user) return '';
+  const { data } = await client.from('user_contacts').select('email').eq('user_id', user.id).maybeSingle();
+  return data?.email || '';
+}
+
+export async function setRecoveryEmail(email) {
+  const { error } = await client.rpc('set_recovery_email', { p_email: email });
+  if (error) throw error;
+}
+
+// "esqueci minha senha": o servidor manda o link para o e-mail de recuperação do @
+export async function requestRecovery(username) {
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/recuperar-senha`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+    body: JSON.stringify({ username, redirectTo: location.origin + location.pathname }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 503) return 'off';
+  if (res.status === 429) return 'limit';
+  if (!res.ok) throw new Error(data.error || 'erro ao pedir recuperação');
+  return 'sent';
+}

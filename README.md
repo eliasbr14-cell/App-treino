@@ -38,6 +38,20 @@ Em **Authentication → URL Configuration**, coloque o endereço do app (ex.: `h
 
 O SQL do banco está em `supabase/migrations/`.
 
+## Recuperação de senha por e-mail (Brevo)
+O login é pelo @. Quem quiser cadastra um **e-mail de recuperação** (no cadastro ou em Minha conta). Em *Esqueci minha senha*, a Edge Function `recuperar-senha` (pasta `supabase/functions/`) gera o link e envia pelo **Brevo** (grátis até 300 e-mails/dia).
+
+Para ligar (uma vez):
+1. Crie uma conta grátis em brevo.com.
+2. Em **Senders, domains & dedicated IPs → Senders**, adicione e confirme o e-mail remetente (ex.: um Gmail só do app).
+3. Em **SMTP & API → API Keys**, gere uma chave.
+4. No Supabase, projeto *app-treino* → **Edge Functions → Secrets**, crie:
+   - `BREVO_API_KEY` = a chave do passo 3
+   - `EMAIL_REMETENTE` = o e-mail confirmado no passo 2
+5. Em **Authentication → URL Configuration**, coloque o endereço do app em *Site URL* e *Redirect URLs* (o link do e-mail volta pra lá).
+
+Enquanto não estiver ligado, o app avisa para pedir o reset ao administrador.
+
 ## Créditos
 Fotos dos exercícios: [Free Exercise DB](https://github.com/yuhonas/free-exercise-db) (domínio público / Unlicense).
 

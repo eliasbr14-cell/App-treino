@@ -1094,6 +1094,11 @@ function viewAccount() {
           <button class="btn small" data-act="change-pw">🔑 Trocar senha</button>
         </div>
         <div class="card">
+          <h3>📧 E-mail de recuperação</h3>
+          <p class="hint">Se esquecer a senha, mandamos um link pra esse e-mail. Ninguém mais vê.</p>
+          <div class="row" style="margin-top:0"><input id="remail" type="email" placeholder="voce@email.com" class="grow" autocomplete="email"><button class="btn" data-act="save-remail">Salvar</button></div>
+        </div>
+        <div class="card">
           <h3>☁️ Sincronização</h3>
           <p id="cloud-status" class="hint">${statusText()}</p>
           <button class="btn" data-act="sync-now">Sincronizar agora</button>
@@ -1129,6 +1134,9 @@ function authCard() {
           <p class="hint" id="ucheck">Letras minúsculas, números, ponto ou _ (3 a 24).</p>
           <label>Senha</label>${pwField('p1', 'required minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres"')}
           <label>Repita a senha</label>${pwField('p2', 'required minlength="6" autocomplete="new-password"')}
+          <label>E-mail de recuperação <small>(opcional)</small></label>
+          <input name="remail" type="email" autocomplete="email" placeholder="voce@email.com">
+          <p class="hint">Só usamos para mandar o link se você esquecer a senha. Você entra sempre com o @.</p>
           <p class="hint" id="serr"></p>
           <button class="btn primary block">Criar conta</button>
         </form>` : `
@@ -1137,7 +1145,8 @@ function authCard() {
           <label>Senha</label>${pwField('password', 'required autocomplete="current-password"')}
           <p class="hint" id="aerr"></p>
           <button class="btn primary block">Entrar</button>
-        </form>`}
+        </form>
+        <button class="link center-link" data-act="forgot">Esqueci minha senha</button>`}
       </div>
       ${PRIVACY}`;
 }
@@ -1181,6 +1190,7 @@ function mountSignup() {
     const btn = form.querySelector('button.primary'); btn.disabled = true;
     try {
       await cloud.signUpUsername(form.username.value, form.name.value.trim(), form.p1.value, TERMS_VERSION);
+      if (form.remail.value.trim()) cloud.setRecoveryEmail(form.remail.value.trim()).catch(() => toast('Não deu pra salvar o e-mail; adicione na sua conta.'));
       toast(`Conta criada! Bem-vindo, @${form.username.value} 💪`);
     } catch (ex) { err.textContent = authError(ex); }
     finally { btn.disabled = false; }
@@ -1411,6 +1421,7 @@ async function mountAccount() {
   const u = cloud.currentUser();
   if (u) {
     cloud.amIAdmin().then(v => { const l = document.getElementById('admin-link'); if (l && v) l.hidden = false; });
+    cloud.getRecoveryEmail().then(v => { const el = document.getElementById('remail'); if (el && !el.value) el.value = v; }).catch(() => {});
     const prof = await cloud.getProfile().catch(() => null);
     const inp = document.getElementById('pname');
     if (inp && prof) inp.value = prof.name || '';
@@ -1438,6 +1449,7 @@ function authError(ex) {
   const m = (ex?.message || '').toLowerCase();
   if (m.includes('invalid login')) return 'Usuário ou senha incorretos.';
   if (m.includes('not confirmed')) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada).';
+  if (m.includes('e-mail inválido')) return 'E-mail inválido.';
   if (m.includes('já tem um @') || m.includes('já existe') || m.includes('muitas') || m.includes('muitos') || m.includes('usuário inválido') || m.includes('senha') || m.includes('informe') || m.includes('aceite')) return ex.message;
   if (m.includes('already registered')) return 'Esse e-mail já tem conta. Use “Entrar”.';
   if (m.includes('password')) return 'Senha fraca: use pelo menos 6 caracteres.';
@@ -1637,10 +1649,34 @@ const actions = {
     });
   },
   'acc-mode': (el) => { accountMode = el.dataset.mode; render(); },
-  'forgot': async () => {
-    const email = document.querySelector('#aform [name=email]')?.value.trim() || prompt('Seu e-mail:');
-    if (!email) return;
-    try { await cloud.resetPassword(email); alert('Se esse e-mail tiver conta, enviamos um link para criar uma nova senha.'); }
+  'forgot': () => {
+    const typed = document.querySelector('#aform [name=login]')?.value.trim().replace(/^@/, '').toLowerCase() || '';
+    const sh = sheet(`
+      <form id="fgform"><h2>🔑 Esqueci minha senha</h2>
+        <p class="hint">Digite seu @. Se você cadastrou um e-mail de recuperação, mandamos um link pra criar uma nova senha.</p>
+        <div class="at-input"><span>@</span><input name="u" required autocapitalize="none" spellcheck="false" value="${esc(typed.includes('@') ? '' : typed)}"></div>
+        <p class="hint" id="fgmsg"></p>
+        <div class="row end"><button type="button" class="btn" data-close>Fechar</button><button class="btn primary">Enviar link</button></div>
+      </form>`);
+    const f = sh.querySelector('form');
+    f.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = f.querySelector('#fgmsg');
+      const btn = f.querySelector('button.primary'); btn.disabled = true;
+      try {
+        const r = await cloud.requestRecovery(f.u.value.trim().replace(/^@/, '').toLowerCase());
+        msg.className = 'hint';
+        msg.innerHTML = r === 'sent'
+          ? '📧 Pronto! Se esse @ tem e-mail de recuperação, o link chegou lá. Olhe também a caixa de <b>spam</b>. O link vale por 1 hora.<br>Não cadastrou e-mail? Peça pro administrador resetar sua senha.'
+          : r === 'limit' ? 'Muitos pedidos agora. Tente de novo daqui a uma hora.'
+          : 'A recuperação por e-mail ainda não está ligada. Peça pro administrador resetar sua senha.';
+      } catch (ex) { msg.textContent = 'Erro: ' + authError(ex); }
+      finally { btn.disabled = false; }
+    });
+  },
+  'save-remail': async () => {
+    const v = document.getElementById('remail').value.trim();
+    try { await cloud.setRecoveryEmail(v); toast(v ? 'E-mail de recuperação salvo ✓' : 'E-mail removido'); }
     catch (ex) { alert(authError(ex)); }
   },
   'save-name': async () => {
