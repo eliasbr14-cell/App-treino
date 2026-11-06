@@ -1766,7 +1766,8 @@ function render() {
     app.innerHTML = `<main class="welcome"><div class="hero"><img src="icons/icon.svg" alt="" width="72" height="72"><p>Carregando…</p></div></main>`;
     return;
   }
-  if (cloud.available() && !cloud.currentUser() && !localTermsOk()) {
+  // apresentação: aparece uma vez em cada aparelho, para todo mundo (logado ou não)
+  if (cloud.available() && !localTermsOk()) {
     app.innerHTML = viewOnboarding();
     app.dataset.hash = '';
     mountOnboarding(() => render());
