@@ -1187,6 +1187,70 @@ function mountSignup() {
   });
 }
 
+// Conta antiga (entrou com e-mail): escolher o @
+function viewClaimUsername() {
+  const sug = suggestUsername(cloud.myName());
+  return `
+    <main class="welcome">
+      <div class="hero">
+        <div class="big">@</div>
+        <h1>Escolha seu @</h1>
+        <p>Novidade: agora todo mundo entra no app com o <b>@</b>, sem precisar de e-mail. Escolha o seu, ele é único e vai aparecer pra galera.</p>
+      </div>
+      <div class="card">
+        <form id="clform" autocomplete="off">
+          <label>Seu @</label>
+          <div class="at-input"><span>@</span><input name="username" required maxlength="24" autocapitalize="none" spellcheck="false" value="${esc(sug)}"></div>
+          <p class="hint" id="ucheck"></p>
+          <p class="hint" id="clerr"></p>
+          <button class="btn primary block">Salvar meu @</button>
+        </form>
+        <p class="hint">Sua senha continua a mesma. Seu e-mail fica guardado na sua conta, mas daqui pra frente você entra com <b>@seu.usuario</b> e a senha.</p>
+      </div>
+    </main>`;
+}
+
+function mountClaimUsername() {
+  const form = document.getElementById('clform');
+  const msg = document.getElementById('ucheck');
+  let timer, lastOk = null;
+  const check = () => {
+    clearTimeout(timer);
+    const u = form.username.value;
+    lastOk = null;
+    if (!/^[a-z0-9_.]{3,24}$/.test(u)) { msg.className = 'hint'; msg.textContent = 'Use 3 a 24 caracteres: letras minúsculas, números, ponto ou _.'; return; }
+    msg.className = 'hint'; msg.textContent = 'Verificando…';
+    timer = setTimeout(async () => {
+      try {
+        const ok = await cloud.usernameAvailable(u);
+        if (form.username.value !== u) return;
+        lastOk = ok;
+        msg.className = 'hint ' + (ok ? 'ok' : 'bad');
+        msg.textContent = ok ? `✓ @${u} está livre` : `✗ @${u} já existe, tente outro`;
+      } catch { msg.textContent = 'Sem conexão para verificar.'; }
+    }, 350);
+  };
+  form.username.addEventListener('input', () => {
+    form.username.value = form.username.value.toLowerCase().replace(/[^a-z0-9_.]/g, '');
+    check();
+  });
+  check();
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('clerr');
+    if (lastOk === false) { err.textContent = 'Esse @ já existe, escolha outro.'; return; }
+    const btn = form.querySelector('button.primary'); btn.disabled = true; err.textContent = '';
+    try {
+      await cloud.claimUsername(form.username.value);
+      sheet(`<div class="done-sheet"><div class="big">✅</div><h2>Pronto, @${esc(form.username.value)}!</h2>
+        <p>Da próxima vez, entre com <b>@${esc(form.username.value)}</b> e a sua senha de sempre.</p>
+        <div class="stack"><button class="btn primary" data-close>Show!</button></div></div>`);
+      render();
+    } catch (ex) { err.textContent = authError(ex); }
+    finally { btn.disabled = false; }
+  });
+}
+
 // Primeiro acesso: troca obrigatória da senha padrão
 function viewForceChange() {
   return `
@@ -1215,7 +1279,7 @@ function mountForceChange() {
     const err = document.getElementById('fcerr');
     if (form.p1.value !== form.p2.value) { err.textContent = 'As senhas não são iguais.'; return; }
     if (form.p1.value.toUpperCase() === cloud.DEFAULT_PASSWORD) { err.textContent = 'Escolha uma senha diferente da padrão.'; return; }
-    const btn = form.querySelector('button'); btn.disabled = true; err.textContent = '';
+    const btn = form.querySelector('button.primary'); btn.disabled = true; err.textContent = '';
     try {
       await cloud.changeMyPassword(form.p1.value);
       toast('Senha criada ✓ Bora treinar!');
@@ -1357,12 +1421,15 @@ async function mountAccount() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const err = document.getElementById('aerr');
-    const btn = form.querySelector('button');
+    const btn = form.querySelector('button.primary');
     btn.disabled = true; err.textContent = '';
     try {
       await cloud.signIn(cloud.loginToEmail(form.login.value), form.password.value);
     } catch (ex) {
       err.textContent = authError(ex);
+      const v = form.login.value.trim();
+      if (v.includes('@') && !v.startsWith('@') && /invalid login/i.test(ex?.message || ''))
+        err.textContent += ' Se você já escolheu seu @, agora entre com ele (ex.: @seu.usuario).';
     } finally { btn.disabled = false; }
   });
 }
@@ -1371,7 +1438,7 @@ function authError(ex) {
   const m = (ex?.message || '').toLowerCase();
   if (m.includes('invalid login')) return 'Usuário ou senha incorretos.';
   if (m.includes('not confirmed')) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada).';
-  if (m.includes('já existe') || m.includes('muitas') || m.includes('muitos') || m.includes('usuário inválido') || m.includes('senha') || m.includes('informe') || m.includes('aceite')) return ex.message;
+  if (m.includes('já tem um @') || m.includes('já existe') || m.includes('muitas') || m.includes('muitos') || m.includes('usuário inválido') || m.includes('senha') || m.includes('informe') || m.includes('aceite')) return ex.message;
   if (m.includes('already registered')) return 'Esse e-mail já tem conta. Use “Entrar”.';
   if (m.includes('password')) return 'Senha fraca: use pelo menos 6 caracteres.';
   if (m.includes('rate limit')) return 'Muitas tentativas. Espere alguns minutos.';
@@ -1680,6 +1747,12 @@ function render() {
     app.innerHTML = viewForceChange();
     app.dataset.hash = '';
     mountForceChange();
+    return;
+  }
+  if (cloud.available() && cloud.needsUsername()) {
+    app.innerHTML = viewClaimUsername();
+    app.dataset.hash = '';
+    mountClaimUsername();
     return;
   }
   // termos: se aceitou na apresentação antes do login, registra na conta; senão pede o aceite

@@ -295,3 +295,12 @@ export async function signUpUsername(username, name, password, termsVersion) {
   if (error) throw error;
   await signIn(loginToEmail(username), password);
 }
+
+// conta antiga (e-mail) escolhe o @ e passa a entrar com ele
+export async function claimUsername(username) {
+  const { error } = await client.rpc('claim_username', { p_username: username });
+  if (error) throw error;
+  if (profile) profile.username = username;
+}
+// perfil carregou e não tem @ (conta antiga criada com e-mail)
+export const needsUsername = () => !!(user && profile && !profile.username);

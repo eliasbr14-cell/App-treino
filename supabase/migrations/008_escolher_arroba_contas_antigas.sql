@@ -1,0 +1,6 @@
+-- Aplicada no projeto app-treino.
+-- user_contacts (user_id, email): e-mail de contato guardado à parte; só o dono lê.
+-- claim_username(p_username): conta antiga (com e-mail, sem @) escolhe o @.
+--   Guarda o e-mail antigo em user_contacts, troca o login para <usuario>@treino.local
+--   (auth.users e auth.identities) e grava o @ no perfil. A senha continua a mesma.
+-- (SQL completo no histórico de migrações do Supabase: escolher_arroba_contas_antigas)
