@@ -1109,18 +1109,82 @@ function viewAccount() {
   return viewWelcome();
 }
 
+// campo de senha com botão de mostrar/esconder
+const pwField = (name, attrs = '') =>
+  `<div class="pw"><input name="${name}" type="password" ${attrs}><button type="button" class="eye" data-eye aria-label="Mostrar senha">👁️</button></div>`;
+
 function authCard() {
+  const signup = accountMode === 'signup';
   return `
       <div class="card">
+        <div class="chips tabs" style="margin-top:0">
+          <button class="chip ${signup ? '' : 'on'}" data-act="acc-mode" data-mode="login">Entrar</button>
+          <button class="chip ${signup ? 'on' : ''}" data-act="acc-mode" data-mode="signup">Criar conta</button>
+        </div>
+        ${signup ? `
+        <form id="sform" autocomplete="off">
+          <label>Seu nome</label><input name="name" required maxlength="60" autocomplete="name" placeholder="Ex.: Rian Souza">
+          <label>Seu @</label>
+          <div class="at-input"><span>@</span><input name="username" required maxlength="24" autocapitalize="none" spellcheck="false" autocomplete="username" placeholder="rian.souza"></div>
+          <p class="hint" id="ucheck">Letras minúsculas, números, ponto ou _ (3 a 24).</p>
+          <label>Senha</label>${pwField('p1', 'required minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres"')}
+          <label>Repita a senha</label>${pwField('p2', 'required minlength="6" autocomplete="new-password"')}
+          <p class="hint" id="serr"></p>
+          <button class="btn primary block">Criar conta</button>
+        </form>` : `
         <form id="aform">
           <label>Usuário</label><input name="login" required autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="@seu.usuario">
-          <label>Senha</label><input name="password" type="password" required autocomplete="current-password">
+          <label>Senha</label>${pwField('password', 'required autocomplete="current-password"')}
           <p class="hint" id="aerr"></p>
           <button class="btn primary block">Entrar</button>
-        </form>
-        <p class="hint center">Ainda não tem acesso? Peça pro administrador criar seu usuário.</p>
+        </form>`}
       </div>
       ${PRIVACY}`;
+}
+
+function mountSignup() {
+  const form = document.getElementById('sform');
+  if (!form) return;
+  const msg = document.getElementById('ucheck');
+  let touched = false, timer, lastOk = null;
+  const check = () => {
+    clearTimeout(timer);
+    const u = form.username.value;
+    lastOk = null;
+    if (!/^[a-z0-9_.]{3,24}$/.test(u)) {
+      msg.className = 'hint'; msg.textContent = u ? 'Use 3 a 24 caracteres: letras minúsculas, números, ponto ou _.' : 'Letras minúsculas, números, ponto ou _ (3 a 24).';
+      return;
+    }
+    msg.className = 'hint'; msg.textContent = 'Verificando…';
+    timer = setTimeout(async () => {
+      try {
+        const ok = await cloud.usernameAvailable(u);
+        if (form.username.value !== u) return;
+        lastOk = ok;
+        msg.className = 'hint ' + (ok ? 'ok' : 'bad');
+        msg.textContent = ok ? `✓ @${u} está livre` : `✗ @${u} já existe, tente outro`;
+      } catch { msg.textContent = 'Sem conexão para verificar.'; }
+    }, 350);
+  };
+  form.username.addEventListener('input', () => {
+    touched = true;
+    form.username.value = form.username.value.toLowerCase().replace(/[^a-z0-9_.]/g, '');
+    check();
+  });
+  form.name.addEventListener('input', () => { if (!touched) { form.username.value = suggestUsername(form.name.value); check(); } });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('serr');
+    err.textContent = '';
+    if (form.p1.value !== form.p2.value) { err.textContent = 'As senhas não são iguais.'; return; }
+    if (lastOk === false) { err.textContent = 'Esse @ já existe, escolha outro.'; return; }
+    const btn = form.querySelector('button.primary'); btn.disabled = true;
+    try {
+      await cloud.signUpUsername(form.username.value, form.name.value.trim(), form.p1.value, TERMS_VERSION);
+      toast(`Conta criada! Bem-vindo, @${form.username.value} 💪`);
+    } catch (ex) { err.textContent = authError(ex); }
+    finally { btn.disabled = false; }
+  });
 }
 
 // Primeiro acesso: troca obrigatória da senha padrão
@@ -1134,8 +1198,8 @@ function viewForceChange() {
       </div>
       <div class="card">
         <form id="fcform">
-          <label>Nova senha</label><input name="p1" type="password" required minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres">
-          <label>Repita a nova senha</label><input name="p2" type="password" required minlength="6" autocomplete="new-password">
+          <label>Nova senha</label>${pwField('p1', 'required minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres"')}
+          <label>Repita a nova senha</label>${pwField('p2', 'required minlength="6" autocomplete="new-password"')}
           <p class="hint" id="fcerr"></p>
           <button class="btn primary block">Salvar e entrar</button>
         </form>
@@ -1271,7 +1335,7 @@ function viewWelcome() {
       <div class="hero">
         <img class="onb-logo small" src="icons/icon.svg" alt="">
         <h1>Meu Treino</h1>
-        <p>Entre para continuar</p>
+        <p>${accountMode === 'signup' ? 'Crie sua conta em segundos' : 'Entre para continuar'}</p>
         ${pending ? `<p class="banner-inline">📩 Você recebeu um treino! Entre para adicionar.</p>` : ''}
       </div>
       ${authCard()}
@@ -1307,6 +1371,7 @@ function authError(ex) {
   const m = (ex?.message || '').toLowerCase();
   if (m.includes('invalid login')) return 'Usuário ou senha incorretos.';
   if (m.includes('not confirmed')) return 'Confirme seu e-mail antes de entrar (veja sua caixa de entrada).';
+  if (m.includes('já existe') || m.includes('muitas') || m.includes('muitos') || m.includes('usuário inválido') || m.includes('senha') || m.includes('informe') || m.includes('aceite')) return ex.message;
   if (m.includes('already registered')) return 'Esse e-mail já tem conta. Use “Entrar”.';
   if (m.includes('password')) return 'Senha fraca: use pelo menos 6 caracteres.';
   if (m.includes('rate limit')) return 'Muitas tentativas. Espere alguns minutos.';
@@ -1491,8 +1556,8 @@ const actions = {
   'change-pw': () => {
     const sh = sheet(`
       <form id="cpform"><h2>🔑 Trocar senha</h2>
-        <label>Nova senha</label><input name="p1" type="password" minlength="6" required autocomplete="new-password">
-        <label>Repita a nova senha</label><input name="p2" type="password" minlength="6" required autocomplete="new-password">
+        <label>Nova senha</label>${pwField('p1', 'minlength="6" required autocomplete="new-password"')}
+        <label>Repita a nova senha</label>${pwField('p2', 'minlength="6" required autocomplete="new-password"')}
         <p class="hint" id="cperr"></p>
         <div class="row end"><button type="button" class="btn" data-close>Cancelar</button><button class="btn primary">Salvar</button></div></form>`);
     const f = sh.querySelector('form');
@@ -1541,6 +1606,15 @@ const actions = {
 };
 
 document.addEventListener('click', (e) => {
+  const eye = e.target.closest('[data-eye]');
+  if (eye) {
+    const inp = eye.parentElement.querySelector('input');
+    const show = inp.type === 'password';
+    inp.type = show ? 'text' : 'password';
+    eye.textContent = show ? '🙈' : '👁️';
+    eye.setAttribute('aria-label', show ? 'Esconder senha' : 'Mostrar senha');
+    return;
+  }
   const el = e.target.closest('[data-act]');
   if (!el || !actions[el.dataset.act]) return;
   e.preventDefault();
@@ -1598,6 +1672,7 @@ function render() {
     app.innerHTML = viewWelcome();
     app.dataset.hash = '';
     mountAccount();
+    mountSignup();
     document.getElementById('rest')?.remove();
     return;
   }

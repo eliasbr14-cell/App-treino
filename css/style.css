@@ -306,3 +306,9 @@ body:has(.drag-ghost) { user-select: none; -webkit-user-select: none; }
 label.check { align-items: flex-start; }
 label.check input { flex: none; margin-top: 2px; }
 .block-btn { width: 100%; text-align: left; font: inherit; color: inherit; }
+
+.pw { position: relative; }
+.pw input { padding-right: 48px; }
+.eye { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); background: none; border: 0; font-size: 1.15rem; padding: 8px; line-height: 1; }
+.hint.ok { color: var(--accent); }
+.hint.bad { color: var(--danger); }

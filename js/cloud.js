@@ -282,3 +282,16 @@ export const loginToEmail = (v) => {
   const t = v.trim().toLowerCase().replace(/^@/, '');
   return t.includes('@') ? t : `${t}@treino.local`;
 };
+
+// ---------- cadastro por @usuário (sem e-mail) ----------
+export async function usernameAvailable(username) {
+  const { data, error } = await client.rpc('username_available', { p_username: username });
+  if (error) throw error;
+  return data === true;
+}
+
+export async function signUpUsername(username, name, password, termsVersion) {
+  const { error } = await client.rpc('sign_up', { p_username: username, p_name: name, p_password: password, p_terms_version: termsVersion });
+  if (error) throw error;
+  await signIn(loginToEmail(username), password);
+}
