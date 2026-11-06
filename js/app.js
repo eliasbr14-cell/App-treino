@@ -1315,7 +1315,7 @@ const SLIDES = [
   { art: `<div class="onb-sets"><span class="set on">✓</span><span class="set on">✓</span><span class="set">3</span><div class="onb-timer">⏱ 01:00</div></div>`,
     title: 'Marque e acompanhe', text: 'Marque as séries, o descanso conta sozinho e avisa. Terminou? O app conclui o treino e já mostra qual é o próximo.' },
   { art: `<div class="onb-share">📤 💬 💪</div>`,
-    title: 'Treine com a galera', text: 'Mande seus treinos para os amigos pelo WhatsApp com um toque. Em breve: feed com o “tá pago” do dia.' },
+    title: 'Treine com a galera', text: 'Mande seus treinos para os amigos pelo WhatsApp com um toque. Em breve: o feed pra postar o seu tá pago do dia, com foto.' },
 ];
 
 function viewOnboarding() {

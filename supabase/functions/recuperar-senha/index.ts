@@ -69,12 +69,12 @@ Deno.serve(async (req) => {
     method: "POST",
     headers: { "api-key": brevoKey, "Content-Type": "application/json", accept: "application/json" },
     body: JSON.stringify({
-      sender: { name: "Meu Treino", email: sender },
+      sender: { name: "Tá Pago", email: sender },
       to: [{ email: contact.email, name: profile.name || username }],
-      subject: "Crie uma nova senha no Meu Treino",
+      subject: "Crie uma nova senha no Tá Pago",
       htmlContent: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:auto">
         <h2>Oi, ${name}! 💪</h2>
-        <p>Alguém pediu para criar uma nova senha para <b>@${escapeHtml(username)}</b> no Meu Treino.</p>
+        <p>Alguém pediu para criar uma nova senha para <b>@${escapeHtml(username)}</b> no Tá Pago.</p>
         <p><a href="${url}" style="display:inline-block;background:#22c55e;color:#052e16;padding:12px 20px;border-radius:12px;text-decoration:none;font-weight:700">Criar nova senha</a></p>
         <p style="color:#666;font-size:13px">O link vale por 1 hora. Se não foi você, é só ignorar este e-mail: sua senha continua a mesma.</p>
       </div>`,

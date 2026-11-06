@@ -1,4 +1,4 @@
-# Meu Treino 🏋️
+# Tá Pago 🏋️✅
 
 App de celular (PWA) para montar treinos **A, B, C…** totalmente personalizados.
 
