@@ -3,6 +3,7 @@ import { getState, update, replaceState, uid } from './store.js';
 import * as cloud from './cloud.js';
 import { TERMS_VERSION, TERMS_HTML } from './terms.js';
 import { APP_NAME } from './brand.js';
+import { GOALS, LEVELS, TIMES, PLACES, FOCUS, PAINS, generatePlan } from './planner.js';
 
 // ============ utilitários ============
 const app = document.getElementById('app');
@@ -133,13 +134,15 @@ function viewHome() {
       <button class="play" data-act="start" data-id="${w.id}" aria-label="Iniciar treino">▶</button>
     </div>`).join('') + `</div>
     <button class="btn block" data-act="share-all">📤 Mandar meus treinos pra um amigo</button>
+    <button class="btn block dashed" data-act="quiz-start">🎯 Gerar um treino personalizado pro meu objetivo</button>
     <a class="btn block dashed" href="#/programas">📋 Ver treinos prontos (iniciante, intermediário, avançado)</a>` : `
     <div class="empty">
       <div class="big">🏋️</div>
       <h2>Monte seu primeiro treino</h2>
       <p>Crie treinos A, B, C… do seu jeito: “Pernas”, “Peito e Tríceps”, o que quiser. Depois é só adicionar os exercícios e os métodos.</p>
       <div class="stack">
-        <a class="btn primary" href="#/programas">📋 Começar com um treino pronto</a>
+        <button class="btn primary" data-act="quiz-start">🎯 Montar meu treino personalizado</button>
+        <a class="btn" href="#/programas">📋 Escolher um treino pronto</a>
         <button class="btn" data-act="new-workout">+ Montar do zero</button>
       </div>
     </div>`;
@@ -654,6 +657,94 @@ async function loadUsers() {
       catch (ex) { alert(ex.message || ex); }
     }));
   } catch (ex) { box.innerHTML = `<p class="hint">Erro: ${esc(ex.message || ex)}</p>`; }
+}
+
+// ============ treino personalizado (questionário) ============
+const QUIZ = [
+  { key: 'goal', title: 'Qual é o seu foco?', sub: 'Escolha o principal. Dá pra mudar depois.', options: GOALS },
+  { key: 'level', title: 'Há quanto tempo você treina?', options: LEVELS },
+  { key: 'days', title: 'Quantos dias por semana você consegue treinar?', options: [2, 3, 4, 5, 6].map(n => ({ id: n, icon: String(n), name: `${n} dias`, desc: { 2: 'Corpo todo, 2 treinos', 3: 'Ótimo para começar', 4: 'Equilíbrio entre treino e descanso', 5: 'Rotina puxada', 6: 'Para quem vive na academia' }[n] })) },
+  { key: 'time', title: 'Quanto tempo você tem por treino?', options: TIMES },
+  { key: 'place', title: 'Onde você vai treinar?', options: PLACES },
+  { key: 'focus', title: 'Quer dar atenção extra a alguma parte?', sub: 'Opcional. Pode marcar mais de uma.', multi: true, options: FOCUS },
+  { key: 'pains', title: 'Sente dor ou tem lesão em algum lugar?', sub: 'O app evita os exercícios que forçam essa região.', multi: true, options: PAINS, none: 'Não tenho' },
+];
+let quiz = null;      // { step, answers }
+let lastPlan = null;  // { answers, workouts, tips }
+
+function startQuiz() {
+  quiz = { step: 0, answers: { focus: [], pains: [], ...(S().goalAnswers || {}) } };
+  go('#/objetivo');
+  render();
+}
+
+function viewQuiz() {
+  if (!quiz) quiz = { step: 0, answers: { focus: [], pains: [], ...(S().goalAnswers || {}) } };
+  const q = QUIZ[quiz.step];
+  const a = quiz.answers;
+  const sel = (id) => q.multi ? (a[q.key] || []).includes(id) : a[q.key] === id;
+  return `
+    <main class="quiz">
+      <div class="quiz-top">
+        <button class="icon-btn" data-act="quiz-back" aria-label="Voltar">←</button>
+        <div class="progress grow"><div style="width:${Math.round((quiz.step + 1) / QUIZ.length * 100)}%"></div></div>
+        <span class="hint">${quiz.step + 1}/${QUIZ.length}</span>
+      </div>
+      <h1>${q.title}</h1>
+      ${q.sub ? `<p class="hint">${q.sub}</p>` : ''}
+      <div class="quiz-options ${q.key === 'days' ? 'grid-days' : ''}">
+        ${q.options.map(o => `
+          <button class="quiz-opt ${sel(o.id) ? 'on' : ''}" data-act="quiz-pick" data-id="${o.id}">
+            ${o.icon ? `<span class="qi">${o.icon}</span>` : ''}
+            <span class="grow"><b>${esc(o.name)}</b>${o.desc ? `<small>${esc(o.desc)}</small>` : ''}</span>
+            ${q.multi ? `<span class="qcheck">${sel(o.id) ? '✓' : ''}</span>` : ''}
+          </button>`).join('')}
+        ${q.none ? `<button class="quiz-opt ${(a[q.key] || []).length ? '' : 'on'}" data-act="quiz-none"><span class="grow"><b>${q.none}</b></span></button>` : ''}
+      </div>
+      ${q.multi ? `<button class="btn primary block quiz-next" data-act="quiz-next">${quiz.step === QUIZ.length - 1 ? 'Gerar meu treino ✨' : 'Continuar'}</button>` : ''}
+    </main>`;
+}
+
+function quizNext() {
+  if (quiz.step < QUIZ.length - 1) { quiz.step++; render(); return; }
+  update(st => { st.goalAnswers = { ...quiz.answers }; });
+  const plan = generatePlan(quiz.answers, allExercises());
+  lastPlan = { answers: { ...quiz.answers }, ...plan };
+  go('#/objetivo/plano');
+}
+
+function viewPlan() {
+  if (!lastPlan) { go('#/objetivo'); return viewQuiz(); }
+  const a = lastPlan.answers;
+  const goal = GOALS.find(g => g.id === a.goal), level = LEVELS.find(l => l.id === a.level);
+  return page({
+    title: '✨ Seu treino',
+    back: '#/',
+    nav: false,
+    body: `
+      <div class="card plan-head">
+        <div class="big">${goal?.icon || '💪'}</div>
+        <h2>${esc(goal?.name || '')}</h2>
+        <p class="hint">${esc(level?.name || '')} · ${a.days}x por semana · ${esc(TIMES.find(t => t.id === a.time)?.name || '')} · ${a.place === 'casa' ? 'em casa' : 'academia'}</p>
+        <p>Montamos ${lastPlan.workouts.length} treinos (${lastPlan.workouts.map(w => w.letter).join(', ')}). Faça em sequência: terminou o último, volta pro A.</p>
+      </div>
+      ${lastPlan.tips.map(t => `<p class="tip">💡 ${esc(t)}</p>`).join('')}
+      ${lastPlan.workouts.map((w, i) => `
+        <div class="card">
+          <div class="row" style="margin-top:0">${badge({ letter: w.letter, color: COLORS[i % COLORS.length] })}<h3>${esc(w.name)}</h3></div>
+          ${w.items.map(it => {
+            const e = findExercise(it.exerciseId);
+            const m = findMethod(it.method);
+            return `<a class="prog-ex" href="#/exercicio/${e.id}">${thumb(e)}<span class="grow"><b>${esc(e.name)}</b>
+              <small>${it.sets} × ${esc(it.reps)}${it.rest ? ' · ⏱ ' + it.rest + 's' : ''}${m.id !== 'normal' ? ' · ' + esc(m.name) : ''}</small></span></a>`;
+          }).join('')}
+        </div>`).join('')}
+      <p class="hint">⚠️ Treino gerado automaticamente com base nas suas respostas. É um ponto de partida: ajuste as cargas e, se puder, mostre para um educador físico.</p>
+      <div class="stack">
+        <button class="btn primary" data-act="use-plan">Usar este treino</button>
+        <button class="btn" data-act="quiz-redo">Refazer as perguntas</button>
+      </div>`,
+  });
 }
 
 // ============ treinos prontos ============
@@ -1612,6 +1703,46 @@ const actions = {
   },
   'share': (el) => shareWorkouts([el.dataset.id]),
   'share-all': () => shareWorkouts(S().workouts.map(w => w.id)),
+  'quiz-start': () => startQuiz(),
+  'quiz-redo': () => startQuiz(),
+  'quiz-back': () => { if (quiz.step === 0) { go('#/'); return; } quiz.step--; render(); },
+  'quiz-pick': (el) => {
+    const q = QUIZ[quiz.step];
+    const id = q.key === 'days' ? Number(el.dataset.id) : el.dataset.id;
+    if (q.multi) {
+      const arr = quiz.answers[q.key] ||= [];
+      const i = arr.indexOf(id);
+      if (i >= 0) arr.splice(i, 1); else arr.push(id);
+      render();
+    } else {
+      quiz.answers[q.key] = id;
+      render();
+      setTimeout(quizNext, 180);
+    }
+  },
+  'quiz-none': () => { quiz.answers[QUIZ[quiz.step].key] = []; render(); },
+  'quiz-next': () => quizNext(),
+  'use-plan': () => {
+    const p = { name: 'seu treino personalizado', workouts: lastPlan.workouts };
+    if (!S().workouts.length) { addWorkouts(p.workouts, false); toast('Treino personalizado pronto ✓ Bora!'); go('#/'); return; }
+    const sh = sheet(`
+      <h2>Você já tem treinos</h2>
+      <p>O que fazer com os seus treinos atuais?</p>
+      <div class="stack">
+        <button class="btn primary" data-choice="replace">Substituir pelo treino personalizado</button>
+        <button class="btn" data-choice="add">Manter os meus e adicionar este</button>
+        <button class="btn" data-close>Cancelar</button>
+      </div>`);
+    sh.addEventListener('click', (ev) => {
+      const c = ev.target.closest('[data-choice]')?.dataset.choice;
+      if (!c) return;
+      if (c === 'replace' && !confirm('Seus treinos atuais serão apagados (o histórico continua). Confirmar?')) return;
+      sh.close();
+      addWorkouts(p.workouts, c === 'replace');
+      toast('Treino personalizado pronto ✓ Bora!');
+      go('#/');
+    });
+  },
   'use-program': (el) => {
     const p = PROGRAMS.find(x => x.id === el.dataset.id);
     if (!S().workouts.length) return applyProgram(p, false);
@@ -1817,6 +1948,8 @@ function render() {
   else if (p[0] === 'treino') html = viewWorkout(p[1]);
   else if (p[0] === 'exercicios') html = viewLibrary();
   else if (p[0] === 'programas') html = viewPrograms();
+  else if (p[0] === 'objetivo' && p[1] === 'plano') html = viewPlan();
+  else if (p[0] === 'objetivo') html = viewQuiz();
   else if (p[0] === 'programa') html = viewProgram(p[1]);
   else if (p[0] === 'exercicio') html = viewExercise(p[1]);
   else if (p[0] === 'metodos') html = viewMethods();
