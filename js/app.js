@@ -567,6 +567,93 @@ async function mountImport(code) {
   });
 }
 
+// ============ painel de testes (admin) ============
+const randomPassword = () => {
+  const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(8)), b => chars[b % chars.length]).join('');
+};
+const appUrl = () => location.origin + location.pathname;
+
+function viewAdmin() {
+  return page({
+    title: '🛠️ Painel de testes',
+    back: '#/conta',
+    nav: false,
+    body: `
+      <div class="card">
+        <h3>Criar login para alguém testar</h3>
+        <form id="newuser">
+          <label>Nome</label><input name="name" maxlength="60" required placeholder="Ex.: João">
+          <label>E-mail</label><input name="email" type="email" required autocomplete="off" placeholder="email@exemplo.com">
+          <label>Senha</label>
+          <div class="row" style="margin-top:0"><input name="password" required minlength="6" class="grow" value="${randomPassword()}" autocomplete="off"><button type="button" class="btn" data-gen>🎲</button></div>
+          <p class="hint" id="nuerr"></p>
+          <button class="btn primary block">Criar login</button>
+        </form>
+        <p class="hint">A conta já nasce confirmada, sem e-mail. A pessoa pode usar até um e-mail inventado, só precisa lembrar dele pra entrar.</p>
+      </div>
+      <h3 class="sec">Contas</h3>
+      <div id="users"><p class="hint">Carregando…</p></div>`,
+  });
+}
+
+async function mountAdmin() {
+  if (!(await cloud.amIAdmin())) { go('#/conta'); return; }
+  const form = document.getElementById('newuser');
+  form.querySelector('[data-gen]').addEventListener('click', () => { form.password.value = randomPassword(); });
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const err = document.getElementById('nuerr');
+    const btn = form.querySelector('button.primary');
+    btn.disabled = true; err.textContent = '';
+    const name = form.name.value.trim(), email = form.email.value.trim().toLowerCase(), password = form.password.value;
+    try {
+      await cloud.adminCreateUser(email, password, name);
+      showCredentials(name, email, password);
+      form.reset(); form.password.value = randomPassword();
+      loadUsers();
+    } catch (ex) { err.textContent = ex.message || String(ex); }
+    finally { btn.disabled = false; }
+  });
+  loadUsers();
+}
+
+function showCredentials(name, email, password, isReset = false) {
+  const text = `💪 ${isReset ? 'Sua nova senha do' : 'Seu acesso ao'} app Meu Treino${name ? ', ' + name : ''}!\n\n📲 Abre: ${appUrl()}\n📧 E-mail: ${email}\n🔑 Senha: ${password}\n\nNa tela inicial toca em "Entrar".`;
+  const sh = sheet(`
+    <h2>✅ ${isReset ? 'Senha alterada' : 'Login criado'}</h2>
+    <div class="card"><p>📧 <b>${esc(email)}</b><br>🔑 <b>${esc(password)}</b></p></div>
+    <div class="stack">
+      <a class="btn whatsapp" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener">Enviar no WhatsApp</a>
+      <button class="btn" data-copy>📋 Copiar mensagem</button>
+      <button class="btn" data-close>Fechar</button>
+    </div>`);
+  sh.querySelector('[data-copy]').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText(text); toast('Copiado ✓'); } catch { prompt('Copie:', text); }
+  });
+}
+
+async function loadUsers() {
+  const box = document.getElementById('users');
+  if (!box) return;
+  try {
+    const users = await cloud.adminListUsers();
+    const fmt = (t) => t ? new Date(t).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }) : 'nunca';
+    box.innerHTML = users.map(u => `
+      <div class="card user-row">
+        <div class="grow"><b>${esc(u.name || '—')}</b><small>${esc(u.email)}</small>
+          <small>criada ${fmt(u.created_at)} · último acesso ${fmt(u.last_sign_in_at)}</small></div>
+        <button class="btn small" data-reset="${u.id}" data-email="${esc(u.email)}" data-name="${esc(u.name || '')}">🔑 Nova senha</button>
+      </div>`).join('') || '<p class="hint">Nenhuma conta.</p>';
+    box.querySelectorAll('[data-reset]').forEach(b => b.addEventListener('click', async () => {
+      if (!confirm(`Gerar uma nova senha para ${b.dataset.email}?`)) return;
+      const pw = randomPassword();
+      try { await cloud.adminSetPassword(b.dataset.reset, pw); showCredentials(b.dataset.name, b.dataset.email, pw, true); }
+      catch (ex) { alert(ex.message || ex); }
+    }));
+  } catch (ex) { box.innerHTML = `<p class="hint">Erro: ${esc(ex.message || ex)}</p>`; }
+}
+
 // ============ treinos prontos ============
 function nextWorkout() {
   const { workouts, history } = S();
@@ -1009,6 +1096,7 @@ function viewAccount() {
           <p id="cloud-status" class="hint">${statusText()}</p>
           <button class="btn" data-act="sync-now">Sincronizar agora</button>
         </div>
+        <a class="card row between" href="#/admin" id="admin-link" hidden style="margin-top:0"><span>🛠️ Painel de testes (criar logins)</span><span>›</span></a>
         ${PRIVACY}
         <div class="row between">
           <button class="btn" data-act="logout">Sair</button>
@@ -1058,6 +1146,7 @@ function viewWelcome() {
 async function mountAccount() {
   const u = cloud.currentUser();
   if (u) {
+    cloud.amIAdmin().then(v => { const l = document.getElementById('admin-link'); if (l && v) l.hidden = false; });
     const prof = await cloud.getProfile().catch(() => null);
     const inp = document.getElementById('pname');
     if (inp && prof) inp.value = prof.name || '';
@@ -1374,6 +1463,7 @@ function render() {
   else if (p[0] === 'historico') html = viewHistory();
   else if (p[0] === 'config') { html = viewConfig(); mount = mountConfig; }
   else if (p[0] === 'conta') { html = viewAccount(); mount = mountAccount; }
+  else if (p[0] === 'admin') { html = viewAdmin(); mount = mountAdmin; }
   else if (p[0] === 'sessao') { html = viewSession(p[1]); if (S().session?.workoutId === p[1]) mount = mountSession; }
   else html = viewNotFound();
 

@@ -259,3 +259,6 @@ body:has(.drag-ghost) { user-select: none; -webkit-user-select: none; }
 .done-sheet .big { font-size: 3.5rem; }
 .next-card { display: flex; align-items: center; gap: 14px; text-align: left; margin-top: 16px; border-color: var(--accent); }
 .next-card small { color: var(--accent); font-weight: 700; }
+
+.user-row { display: flex; align-items: center; gap: 10px; }
+.user-row small { display: block; color: var(--muted); }

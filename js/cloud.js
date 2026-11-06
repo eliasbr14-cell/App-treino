@@ -207,3 +207,31 @@ export async function deleteAccount() {
   await client.auth.signOut().catch(() => {});
   replaceState({});
 }
+
+// ---------- administração (permissão conferida no banco) ----------
+let adminCache = null;
+export async function amIAdmin() {
+  if (!user) return false;
+  if (adminCache?.id === user.id) return adminCache.v;
+  const { data, error } = await client.rpc('am_i_admin');
+  const v = !error && data === true;
+  adminCache = { id: user.id, v };
+  return v;
+}
+
+export async function adminCreateUser(email, password, name) {
+  const { data, error } = await client.rpc('admin_create_user', { p_email: email, p_password: password, p_name: name });
+  if (error) throw error;
+  return data;
+}
+
+export async function adminListUsers() {
+  const { data, error } = await client.rpc('admin_list_users');
+  if (error) throw error;
+  return data;
+}
+
+export async function adminSetPassword(userId, password) {
+  const { error } = await client.rpc('admin_set_password', { p_user: userId, p_password: password });
+  if (error) throw error;
+}
