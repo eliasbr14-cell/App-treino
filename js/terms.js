@@ -1,11 +1,13 @@
 // Termos de uso e política de privacidade.
 // Ao mudar o texto de forma relevante, aumente TERMS_VERSION: todo mundo precisa aceitar de novo.
+import { APP_NAME } from './brand.js';
+
 export const TERMS_VERSION = '1';
 export const TERMS_DATE = '06/11/2026';
 
 export const TERMS_HTML = `
 <h3>1. O que é o app</h3>
-<p>O Meu Treino é um app para montar e acompanhar treinos de musculação. Ele está em fase de testes, com acesso por convite. Pode ter falhas, mudar ou sair do ar.</p>
+<p>O ${APP_NAME} é um app para montar e acompanhar treinos de musculação. Ele está em fase de testes. Pode ter falhas, mudar ou sair do ar.</p>
 
 <h3>2. Saúde e responsabilidade</h3>
 <p>Os treinos prontos, os métodos e as dicas são <b>sugestões gerais</b> e não substituem a orientação de um profissional de educação física ou de saúde. Se você tem lesão, dor, condição de saúde ou está voltando a treinar, procure um profissional antes. Você treina por sua conta e risco e é responsável por usar cargas e execuções seguras.</p>

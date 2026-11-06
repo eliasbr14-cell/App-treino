@@ -2,6 +2,7 @@ import { GROUPS, EXERCISES, METHODS, WORKOUT_TEMPLATES, COLORS, PROGRAMS } from 
 import { getState, update, replaceState, uid } from './store.js';
 import * as cloud from './cloud.js';
 import { TERMS_VERSION, TERMS_HTML } from './terms.js';
+import { APP_NAME } from './brand.js';
 
 // ============ utilitários ============
 const app = document.getElementById('app');
@@ -500,7 +501,7 @@ async function shareWorkouts(ids) {
   };
   const url = `${location.origin}${location.pathname}#/importar/${await packShare(payload)}`;
   const label = ws.length === 1 ? `o treino ${ws[0].letter} – ${ws[0].name}` : `${ws.length} treinos (${ws.map(w => w.letter).join(', ')})`;
-  const text = `💪 ${payload.from || 'Um amigo'} te mandou ${label} no app Meu Treino!\nToca no link pra adicionar:\n${url}`;
+  const text = `💪 ${payload.from || 'Um amigo'} te mandou ${label} no app ${APP_NAME}!\nToca no link pra adicionar:\n${url}`;
   const sh = sheet(`
     <h2>📤 Compartilhar ${esc(label)}</h2>
     <p class="hint">Quem abrir o link vê o treino e adiciona na conta dele com um toque. Cargas não vão junto, cada um usa a sua.</p>
@@ -620,7 +621,7 @@ async function mountAdmin() {
 }
 
 function showCredentials(name, username, isReset = false) {
-  const text = `💪 ${isReset ? 'Sua senha do app Meu Treino foi resetada' : 'Seu acesso ao app Meu Treino'}${name ? ', ' + name : ''}!\n\n📲 Abre: ${appUrl()}\n👤 Usuário: @${username}\n🔑 Senha: ${cloud.DEFAULT_PASSWORD}\n\nNo primeiro acesso o app pede pra você criar sua própria senha.`;
+  const text = `💪 ${isReset ? `Sua senha do app ${APP_NAME} foi resetada` : `Seu acesso ao app ${APP_NAME}`}${name ? ', ' + name : ''}!\n\n📲 Abre: ${appUrl()}\n👤 Usuário: @${username}\n🔑 Senha: ${cloud.DEFAULT_PASSWORD}\n\nNo primeiro acesso o app pede pra você criar sua própria senha.`;
   const sh = sheet(`
     <h2>✅ ${isReset ? 'Senha resetada' : 'Usuário criado'}</h2>
     <div class="card"><p>👤 <b>@${esc(username)}</b><br>🔑 <b>${cloud.DEFAULT_PASSWORD}</b> <small>(troca no primeiro acesso)</small></p></div>
@@ -1305,7 +1306,7 @@ const localTermsOk = () => { try { return localStorage.getItem(ONB_KEY) === TERM
 const setLocalTermsOk = () => { try { localStorage.setItem(ONB_KEY, TERMS_VERSION); } catch {} };
 
 const SLIDES = [
-  { art: `<img class="onb-logo" src="icons/icon.svg" alt="">`, title: 'Bem-vindo ao Meu Treino',
+  { art: `<img class="onb-logo" src="icons/icon.svg" alt="">`, title: `Bem-vindo ao ${APP_NAME}`,
     text: 'Seu treino de musculação no bolso: A, B, C… do seu jeito, do primeiro dia de academia ao avançado.' },
   { art: `<div class="onb-badges"><span class="badge lg" style="--c:#22c55e">A</span><span class="badge lg" style="--c:#3b82f6">B</span><span class="badge lg" style="--c:#f97316">C</span></div>`,
     title: 'Monte do seu jeito', text: 'Comece com um treino pronto (iniciante, intermediário ou avançado) ou monte do zero. Séries, carga, descanso e métodos como drop-set e pirâmide.' },
@@ -1408,7 +1409,7 @@ function viewWelcome() {
     <main class="welcome login">
       <div class="hero">
         <img class="onb-logo small" src="icons/icon.svg" alt="">
-        <h1>Meu Treino</h1>
+        <h1>${APP_NAME}</h1>
         <p>${accountMode === 'signup' ? 'Crie sua conta em segundos' : 'Entre para continuar'}</p>
         ${pending ? `<p class="banner-inline">📩 Você recebeu um treino! Entre para adicionar.</p>` : ''}
       </div>
