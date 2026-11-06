@@ -331,3 +331,6 @@ label.check input { flex: none; margin-top: 2px; }
 .plan-head { text-align: center; }
 .plan-head h2 { margin: 4px 0; }
 .tip { background: var(--card); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: 10px; font-size: .9rem; color: var(--muted); margin: 0 0 10px; }
+
+.quiz-cta { display: block; width: 100%; text-align: left; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+.quiz-cta small { display: block; color: var(--muted); margin-top: 4px; }

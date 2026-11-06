@@ -1,4 +1,5 @@
-import { GROUPS, EXERCISES, METHODS, WORKOUT_TEMPLATES, COLORS, PROGRAMS } from './data.js';
+import { GROUPS, EXERCISES, METHODS, WORKOUT_TEMPLATES, COLORS, PROGRAMS, STYLE_PROGRAMS } from './data.js';
+const ALL_PROGRAMS = [...PROGRAMS, ...STYLE_PROGRAMS];
 import { getState, update, replaceState, uid } from './store.js';
 import * as cloud from './cloud.js';
 import { TERMS_VERSION, TERMS_HTML } from './terms.js';
@@ -759,28 +760,36 @@ function nextWorkout() {
 
 const LEVEL_ICON = { 'Iniciante': '🌱', 'Intermediário': '🔥', 'Avançado': '🏆' };
 
+const programIcon = (p) => p.icon || LEVEL_ICON[p.level] || '';
+const programCard = (p) => `
+        <a class="card program" href="#/programa/${p.id}">
+          <div class="row between" style="margin-top:0"><h3>${programIcon(p)} ${esc(p.name)}</h3><span>›</span></div>
+          <div class="letters-row">${p.workouts.map((w, i) => `<span class="badge" style="--c:${COLORS[i % COLORS.length]}">${w.letter}</span>`).join('')}
+            <small>${p.workouts.map(w => esc(w.name)).join(' · ')}</small></div>
+          <small>📅 ${esc(p.freq)}${p.style ? ` · nível: ${esc(p.level)}` : ''}</small>
+        </a>`;
+
 function viewPrograms() {
   return page({
     title: 'Treinos prontos',
     back: '#/',
     body: `
       <p class="hint">Escolha um programa para começar. Depois você pode mudar tudo: exercícios, séries, cargas e métodos.</p>
-      ${PROGRAMS.map(p => `
-        <a class="card program" href="#/programa/${p.id}">
-          <div class="row between" style="margin-top:0"><h3>${LEVEL_ICON[p.level] || ''} ${esc(p.name)}</h3><span>›</span></div>
-          <div class="letters-row">${p.workouts.map((w, i) => `<span class="badge" style="--c:${COLORS[i % COLORS.length]}">${w.letter}</span>`).join('')}
-            <small>${p.workouts.map(w => esc(w.name)).join(' · ')}</small></div>
-          <small>📅 ${esc(p.freq)}</small>
-        </a>`).join('')}
+      <button class="card program quiz-cta" data-act="quiz-start"><b>🎯 Prefere um treino feito pra você?</b><small>Responda 7 perguntas e o app monta pelo seu objetivo.</small></button>
+      <h3 class="sec">Por nível</h3>
+      ${PROGRAMS.map(programCard).join('')}
+      <h3 class="sec">Por estilo de treino</h3>
+      <p class="hint">Estilos famosos que a galera da musculação segue.</p>
+      ${STYLE_PROGRAMS.map(programCard).join('')}
       <p class="hint">⚠️ São sugestões gerais. Se tiver lesão, dor ou condição de saúde, procure um educador físico antes de começar.</p>`,
   });
 }
 
 function viewProgram(id) {
-  const p = PROGRAMS.find(x => x.id === id);
+  const p = ALL_PROGRAMS.find(x => x.id === id);
   if (!p) return viewNotFound();
   return page({
-    title: `${LEVEL_ICON[p.level] || ''} ${esc(p.name)}`,
+    title: `${programIcon(p)} ${esc(p.name)}`,
     back: '#/programas',
     nav: false,
     body: `
@@ -1744,7 +1753,7 @@ const actions = {
     });
   },
   'use-program': (el) => {
-    const p = PROGRAMS.find(x => x.id === el.dataset.id);
+    const p = ALL_PROGRAMS.find(x => x.id === el.dataset.id);
     if (!S().workouts.length) return applyProgram(p, false);
     const sh = sheet(`
       <h2>Você já tem treinos</h2>

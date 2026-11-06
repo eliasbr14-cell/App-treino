@@ -333,3 +333,133 @@ export const PROGRAMS = [
     ],
   },
 ];
+
+// ---------- Treinos por estilo (métodos conhecidos, sem nome de pessoas) ----------
+export const STYLE_PROGRAMS = [
+  {
+    id: 'estilo-era-de-ouro',
+    style: true, icon: '🏛️',
+    level: 'Avançado',
+    name: 'Era de Ouro · Volume alto',
+    freq: '6x por semana: A, B, C, A, B, C e um dia de descanso',
+    desc: 'O estilo do fisiculturismo clássico dos anos 70: muitas séries, peito e costas no mesmo dia, braços com super-séries e pernas pesadas. Muito volume: só para quem já treina há bastante tempo e recupera bem.',
+    workouts: [
+      P('A', 'Peito e Costas', ['peito', 'costas'], [
+        ['supino-reto-barra', 5, '10-8-8-6-6', 120, 'piramide-cresc'], ['barra-fixa', 5, 'falha', 90],
+        ['supino-inclinado-halter', 4, '10', 90], ['remada-curvada', 4, '10', 90],
+        ['crucifixo-halter', 4, '12', 60], ['puxada-frente', 4, '10', 75], ['pulldown-braco-reto', 3, '12', 60],
+      ]),
+      P('B', 'Ombros e Braços', ['ombros', 'biceps', 'triceps'], [
+        ['desenvolvimento-barra', 5, '10', 90], ['elevacao-lateral', 4, '12', 45], ['crucifixo-inverso', 4, '12', 45],
+        ['rosca-direta', 4, '10', 60, 'super-serie', 'Super-série com o tríceps testa'], ['triceps-testa', 4, '10', 60, 'super-serie'],
+        ['rosca-concentrada', 3, '12', 45], ['triceps-frances', 3, '12', 45],
+      ]),
+      P('C', 'Pernas e Abdômen', ['quadriceps', 'posterior', 'panturrilha', 'abdomen'], [
+        ['agachamento-livre', 5, '12-10-8-6-6', 150, 'piramide-cresc'], ['leg-press', 4, '12', 90],
+        ['cadeira-extensora', 4, '15', 60], ['stiff', 4, '10', 90], ['mesa-flexora', 4, '12', 60],
+        ['panturrilha-em-pe', 5, '15', 45], ['elevacao-pernas', 4, '15', 45],
+      ]),
+    ],
+  },
+  {
+    id: 'estilo-alta-intensidade',
+    style: true, icon: '⚡',
+    level: 'Intermediário',
+    name: 'Alta intensidade · Poucas séries',
+    freq: '3x por semana com 1 dia de descanso entre os treinos (ex.: seg, qua, sex)',
+    desc: 'Pouco volume e muita intensidade: depois do aquecimento, só 1 série por exercício, até não conseguir mais nenhuma repetição com boa técnica. Treino curto, mas pesado. Use pré-exaustão: um isolado logo antes do básico.',
+    workouts: [
+      P('A', 'Peito, Ombros e Tríceps', ['peito', 'ombros', 'triceps'], [
+        ['peck-deck', 1, '6-10 (falha)', 0, 'normal', 'Pré-exaustão: vá direto para o supino, sem descanso'], ['supino-maquina', 1, '6-10 (falha)', 120],
+        ['elevacao-lateral', 1, '6-10 (falha)', 90], ['desenvolvimento-maquina', 1, '6-10 (falha)', 120],
+        ['triceps-corda', 1, '6-10 (falha)', 0, 'normal', 'Pré-exaustão: vá direto para as paralelas'], ['paralelas-triceps', 1, 'falha', 120],
+      ]),
+      P('B', 'Costas e Bíceps', ['costas', 'biceps'], [
+        ['pulldown-braco-reto', 1, '6-10 (falha)', 0, 'normal', 'Pré-exaustão: vá direto para a puxada'], ['puxada-triangulo', 1, '6-10 (falha)', 120],
+        ['remada-maquina', 1, '6-10 (falha)', 120], ['encolhimento', 1, '8-12 (falha)', 90], ['rosca-scott', 1, '6-10 (falha)', 90],
+      ]),
+      P('C', 'Pernas', ['quadriceps', 'posterior', 'panturrilha'], [
+        ['cadeira-extensora', 1, '8-12 (falha)', 0, 'normal', 'Pré-exaustão: vá direto para o leg press'], ['leg-press', 1, '8-12 (falha)', 150],
+        ['mesa-flexora', 1, '8-12 (falha)', 120], ['stiff', 1, '8-12', 120], ['panturrilha-em-pe', 1, '12-15 (falha)', 90],
+      ]),
+    ],
+  },
+  {
+    id: 'estilo-powerbuilding',
+    style: true, icon: '🏋️',
+    level: 'Intermediário',
+    name: 'Powerbuilding · Força + massa',
+    freq: '4x por semana (ex.: seg, ter, qui, sex)',
+    desc: 'Cada dia começa com um levantamento pesado para ganhar força (poucas repetições, descanso longo) e termina com exercícios de hipertrofia. Suba a carga do básico aos poucos, semana a semana.',
+    workouts: [
+      P('A', 'Supino pesado + Peito/Tríceps', ['peito', 'triceps', 'ombros'], [
+        ['supino-reto-barra', 5, '5', 180, 'normal', 'Pesado: carga que dá 5 repetições com técnica'], ['supino-inclinado-halter', 3, '8-10', 90],
+        ['crucifixo-halter', 3, '12', 60], ['elevacao-lateral', 3, '12', 45], ['triceps-testa', 3, '10', 60], ['triceps-corda', 3, '12', 45],
+      ]),
+      P('B', 'Agachamento pesado + Pernas', ['quadriceps', 'posterior', 'gluteos'], [
+        ['agachamento-livre', 5, '5', 180, 'normal', 'Pesado: carga que dá 5 repetições com técnica'], ['leg-press', 3, '10', 90],
+        ['mesa-flexora', 3, '10', 60], ['cadeira-extensora', 3, '12', 60], ['elevacao-pelvica', 3, '10', 75], ['panturrilha-em-pe', 4, '12', 45],
+      ]),
+      P('C', 'Desenvolvimento pesado + Ombros/Braços', ['ombros', 'biceps', 'triceps'], [
+        ['desenvolvimento-barra', 5, '5', 150, 'normal', 'Pesado: carga que dá 5 repetições com técnica'], ['supino-fechado', 3, '8', 120],
+        ['elevacao-lateral', 3, '12', 45], ['face-pull', 3, '15', 45], ['rosca-direta', 3, '10', 60], ['rosca-martelo', 3, '12', 45],
+      ]),
+      P('D', 'Terra pesado + Costas', ['costas', 'posterior', 'biceps'], [
+        ['levantamento-terra', 5, '5', 180, 'normal', 'Pesado: carga que dá 5 repetições, coluna sempre neutra'], ['barra-fixa', 4, '6-8', 120],
+        ['remada-curvada', 3, '8-10', 90], ['remada-baixa', 3, '12', 60], ['rosca-scott', 3, '10', 60],
+      ]),
+    ],
+  },
+  {
+    id: 'estilo-definicao-verao',
+    style: true, icon: '☀️',
+    level: 'Intermediário',
+    name: 'Definição · Shape de verão',
+    freq: '4x por semana + cardio no fim de cada treino',
+    desc: 'Ritmo acelerado com bi-sets (dois exercícios sem descanso entre eles), descanso curto e cardio no fim. Ajuda a gastar mais energia mantendo o músculo. Combine com alimentação em déficit calórico.',
+    workouts: [
+      P('A', 'Peito e Tríceps', ['peito', 'triceps'], [
+        ['supino-reto-barra', 4, '12', 60], ['supino-inclinado-halter', 3, '12', 0, 'bi-set', 'Bi-set com o crossover'], ['crossover', 3, '15', 45, 'bi-set'],
+        ['triceps-corda', 3, '15', 0, 'bi-set', 'Bi-set com o tríceps francês'], ['triceps-frances', 3, '12', 45, 'bi-set'], ['esteira', 1, '20 min', 0],
+      ]),
+      P('B', 'Pernas', ['quadriceps', 'posterior', 'gluteos'], [
+        ['agachamento-smith', 4, '12', 60], ['leg-press', 3, '15', 0, 'bi-set', 'Bi-set com a cadeira extensora'], ['cadeira-extensora', 3, '15', 45, 'bi-set'],
+        ['mesa-flexora', 3, '12', 0, 'bi-set', 'Bi-set com a elevação pélvica'], ['elevacao-pelvica', 3, '12', 45, 'bi-set'], ['bike', 1, '20 min', 0],
+      ]),
+      P('C', 'Costas e Bíceps', ['costas', 'biceps'], [
+        ['puxada-frente', 4, '12', 60], ['remada-baixa', 3, '12', 0, 'bi-set', 'Bi-set com o pulldown'], ['pulldown-braco-reto', 3, '15', 45, 'bi-set'],
+        ['rosca-direta', 3, '12', 0, 'bi-set', 'Bi-set com a rosca martelo'], ['rosca-martelo', 3, '12', 45, 'bi-set'], ['eliptico', 1, '20 min', 0],
+      ]),
+      P('D', 'Ombros e Abdômen', ['ombros', 'abdomen'], [
+        ['desenvolvimento-halter', 4, '12', 60], ['elevacao-lateral', 3, '15', 0, 'bi-set', 'Bi-set com o crucifixo inverso'], ['crucifixo-inverso', 3, '15', 45, 'bi-set'],
+        ['abdominal-polia', 3, '15', 30], ['elevacao-pernas', 3, '12', 30], ['prancha', 3, '45s', 30], ['escada', 1, '15 min', 0],
+      ]),
+    ],
+  },
+  {
+    id: 'estilo-gluteo-em-foco',
+    style: true, icon: '🍑',
+    level: 'Intermediário',
+    name: 'Glúteo em foco',
+    freq: '3x por semana para inferiores + 1 dia de superiores (opcional)',
+    desc: 'Dois dias com glúteo como prioridade (elevação pélvica pesada, búlgaro, abdutora) e um de posterior. Carga progressiva e controle na descida.',
+    workouts: [
+      P('A', 'Glúteo pesado', ['gluteos', 'quadriceps'], [
+        ['elevacao-pelvica', 4, '8-10', 120], ['agachamento-smith', 4, '10', 90], ['bulgaro', 3, '10', 75],
+        ['abdutora', 3, '15', 45, 'drop-set', 'Drop-set na última série'], ['gluteo-polia', 3, '12', 45],
+      ]),
+      P('B', 'Superiores', ['peito', 'costas', 'ombros'], [
+        ['supino-maquina', 3, '10-12', 75], ['puxada-frente', 3, '10-12', 75], ['desenvolvimento-maquina', 3, '10-12', 75],
+        ['remada-baixa', 3, '12', 60], ['elevacao-lateral', 3, '15', 45], ['prancha', 3, '45s', 30],
+      ]),
+      P('C', 'Posterior e Glúteo', ['posterior', 'gluteos'], [
+        ['stiff', 4, '10', 90], ['mesa-flexora', 3, '12', 60], ['gluteo-maquina', 3, '12', 45],
+        ['cadeira-flexora', 3, '12', 45], ['ponte', 3, '15', 45, 'isometria', 'Segure 2s no topo'],
+      ]),
+      P('D', 'Glúteo e Quadríceps', ['gluteos', 'quadriceps', 'panturrilha'], [
+        ['leg-press', 4, '12', 90, 'normal', 'Pés altos e afastados na plataforma'], ['afundo', 3, '12', 60], ['elevacao-pelvica', 3, '15', 60],
+        ['abdutora', 3, '20', 45], ['cadeira-extensora', 3, '15', 45], ['panturrilha-em-pe', 3, '15', 45],
+      ]),
+    ],
+  },
+];
