@@ -29,6 +29,14 @@ export const available = () => !!client;
 export const currentUser = () => user;
 export const isReady = () => ready && (!user || profileReady);
 export const myUsername = () => profile?.username || '';
+// versão dos termos aceita (null = ainda não aceitou; undefined = perfil não carregou, ex. offline)
+export const acceptedTermsVersion = () => (profile ? profile.terms_version || null : undefined);
+
+export async function acceptTerms(version) {
+  const { error } = await client.rpc('accept_terms', { p_version: version });
+  if (error) throw error;
+  if (profile) profile.terms_version = version;
+}
 // precisa trocar a senha padrão? (guardado também no aparelho para valer offline)
 export const mustChangePassword = () => {
   if (profile) return !!profile.must_change_password;
@@ -204,7 +212,7 @@ export async function setNewPassword(password) {
 
 export async function getProfile() {
   if (!user) return null;
-  const { data } = await client.from('profiles').select('name, username, must_change_password').eq('id', user.id).maybeSingle();
+  const { data } = await client.from('profiles').select('name, username, must_change_password, terms_version').eq('id', user.id).maybeSingle();
   return data;
 }
 

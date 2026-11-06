@@ -1,6 +1,7 @@
 import { GROUPS, EXERCISES, METHODS, WORKOUT_TEMPLATES, COLORS, PROGRAMS } from './data.js';
 import { getState, update, replaceState, uid } from './store.js';
 import * as cloud from './cloud.js';
+import { TERMS_VERSION, TERMS_HTML } from './terms.js';
 
 // ============ utilitários ============
 const app = document.getElementById('app');
@@ -1074,7 +1075,7 @@ function statusText() {
   return '📴 Sem conexão — salva no aparelho e envia quando voltar a internet';
 }
 
-const PRIVACY = `<p class="hint">🔒 Seus dados ficam guardados no Supabase (servidor em São Paulo) e são protegidos por regras de acesso: só você vê os seus treinos. Você pode excluir sua conta e todos os seus dados a qualquer momento.</p>`;
+const PRIVACY = `<p class="hint">🔒 Seus dados ficam guardados no Supabase (servidor em São Paulo) e são protegidos por regras de acesso: só você vê os seus treinos. Você pode pedir a exclusão da sua conta e de todos os seus dados quando quiser.</p>`;
 
 function viewAccount() {
   if (!cloud.available()) {
@@ -1160,18 +1161,121 @@ function mountForceChange() {
   });
 }
 
-// Primeira tela: login antes de tudo
+// ============ apresentação (primeira vez) ============
+const ONB_KEY = 'app-treino:onboarding';      // versão dos termos aceita neste aparelho
+const localTermsOk = () => { try { return localStorage.getItem(ONB_KEY) === TERMS_VERSION; } catch { return false; } };
+const setLocalTermsOk = () => { try { localStorage.setItem(ONB_KEY, TERMS_VERSION); } catch {} };
+
+const SLIDES = [
+  { art: `<img class="onb-logo" src="icons/icon.svg" alt="">`, title: 'Bem-vindo ao Meu Treino',
+    text: 'Seu treino de musculação no bolso: A, B, C… do seu jeito, do primeiro dia de academia ao avançado.' },
+  { art: `<div class="onb-badges"><span class="badge lg" style="--c:#22c55e">A</span><span class="badge lg" style="--c:#3b82f6">B</span><span class="badge lg" style="--c:#f97316">C</span></div>`,
+    title: 'Monte do seu jeito', text: 'Comece com um treino pronto (iniciante, intermediário ou avançado) ou monte do zero. Séries, carga, descanso e métodos como drop-set e pirâmide.' },
+  { art: `<div class="demo onb-demo"><img src="img/ex/leg-press-0.jpg" alt=""><img class="b" src="img/ex/leg-press-1.jpg" alt=""></div>`,
+    title: 'Veja como faz', text: 'Cada exercício mostra o movimento e a máquina. Não tem o aparelho na sua academia? Troque por uma variação na hora.' },
+  { art: `<div class="onb-sets"><span class="set on">✓</span><span class="set on">✓</span><span class="set">3</span><div class="onb-timer">⏱ 01:00</div></div>`,
+    title: 'Marque e acompanhe', text: 'Marque as séries, o descanso conta sozinho e avisa. Terminou? O app conclui o treino e já mostra qual é o próximo.' },
+  { art: `<div class="onb-share">📤 💬 💪</div>`,
+    title: 'Treine com a galera', text: 'Mande seus treinos para os amigos pelo WhatsApp com um toque. Em breve: feed com o “tá pago” do dia.' },
+];
+
+function viewOnboarding() {
+  return `
+    <div class="onb">
+      <button class="onb-skip" data-onb="skip">Pular</button>
+      <div class="onb-track" id="onb-track">
+        ${SLIDES.map(sl => `
+          <section class="onb-slide">
+            <div class="onb-art">${sl.art}</div>
+            <h1>${sl.title}</h1>
+            <p>${sl.text}</p>
+          </section>`).join('')}
+        <section class="onb-slide terms-slide">
+          <div class="onb-art"><div class="onb-share">📜</div></div>
+          <h1>Antes de começar</h1>
+          <p>Leia e aceite os termos de uso e a política de privacidade. Resumo: seus dados servem só para o app funcionar, ficam protegidos e você pode pedir para apagar quando quiser.</p>
+          <button class="btn block" data-onb="read">📖 Ler os termos completos</button>
+          <label class="check"><input type="checkbox" id="onb-accept"> Tenho 16 anos ou mais, li e aceito os termos de uso e a política de privacidade</label>
+        </section>
+      </div>
+      <div class="onb-foot">
+        <div class="dots">${[...SLIDES, 0].map((_, i) => `<span class="${i ? '' : 'on'}"></span>`).join('')}</div>
+        <button class="btn primary block" id="onb-next">Próximo</button>
+      </div>
+    </div>`;
+}
+
+function mountOnboarding(onDone) {
+  const track = document.getElementById('onb-track');
+  const next = document.getElementById('onb-next');
+  const dots = [...document.querySelectorAll('.dots span')];
+  const accept = document.getElementById('onb-accept');
+  const total = SLIDES.length + 1;
+  const idx = () => Math.round(track.scrollLeft / track.clientWidth);
+  const goTo = (i) => track.scrollTo({ left: i * track.clientWidth, behavior: 'smooth' });
+  const update = () => {
+    const i = idx();
+    dots.forEach((d, j) => d.classList.toggle('on', j === i));
+    const last = i === total - 1;
+    next.textContent = last ? 'Aceitar e continuar' : 'Próximo';
+    next.disabled = last && !accept.checked;
+    document.querySelector('.onb-skip').style.visibility = last ? 'hidden' : 'visible';
+  };
+  track.addEventListener('scroll', () => requestAnimationFrame(update));
+  accept.addEventListener('change', update);
+  next.addEventListener('click', () => {
+    if (idx() < total - 1) return goTo(idx() + 1);
+    if (!accept.checked) return;
+    setLocalTermsOk();
+    onDone();
+  });
+  document.querySelector('[data-onb=skip]').addEventListener('click', () => goTo(total - 1));
+  document.querySelector('[data-onb=read]').addEventListener('click', openTerms);
+  update();
+}
+
+function openTerms() {
+  sheet(`<div class="terms"><h2>Termos de uso e privacidade</h2>${TERMS_HTML}</div>
+    <div class="row end"><button class="btn primary" data-close>Fechar</button></div>`);
+}
+
+// Usuário já logado que ainda não aceitou esta versão dos termos
+function viewTermsGate() {
+  return `
+    <main class="welcome">
+      <div class="hero"><div class="big">📜</div><h1>Termos de uso</h1>
+        <p>Para continuar usando o app, leia e aceite os termos de uso e a política de privacidade.</p></div>
+      <div class="card terms">${TERMS_HTML}</div>
+      <label class="check"><input type="checkbox" id="tg-accept"> Tenho 16 anos ou mais, li e aceito os termos</label>
+      <p class="hint" id="tg-err"></p>
+      <button class="btn primary block" id="tg-ok" disabled>Aceitar e continuar</button>
+      <button class="link" data-act="logout-now">Sair</button>
+    </main>`;
+}
+
+function mountTermsGate() {
+  const cb = document.getElementById('tg-accept'), ok = document.getElementById('tg-ok');
+  cb.addEventListener('change', () => { ok.disabled = !cb.checked; });
+  ok.addEventListener('click', async () => {
+    ok.disabled = true;
+    try { await cloud.acceptTerms(TERMS_VERSION); setLocalTermsOk(); render(); }
+    catch (ex) { document.getElementById('tg-err').textContent = 'Não foi possível salvar o aceite: ' + authError(ex); ok.disabled = false; }
+  });
+}
+
+// Tela de login
 function viewWelcome() {
   const pending = pendingImport();
   return `
-    <main class="welcome">
+    <main class="welcome login">
       <div class="hero">
-        <img src="icons/icon.svg" alt="" width="72" height="72">
+        <img class="onb-logo small" src="icons/icon.svg" alt="">
         <h1>Meu Treino</h1>
-        <p>Seus treinos A, B, C do seu jeito, com demonstração de cada exercício e cronômetro de descanso.</p>
-        ${pending ? `<p class="banner-inline">📩 Você recebeu um treino! Entre ou crie sua conta para adicionar.</p>` : ''}
+        <p>Entre para continuar</p>
+        ${pending ? `<p class="banner-inline">📩 Você recebeu um treino! Entre para adicionar.</p>` : ''}
       </div>
       ${authCard()}
+      <button class="link center-link" data-act="show-terms">Termos de uso e privacidade</button>
     </main>`;
 }
 
@@ -1236,6 +1340,7 @@ function viewConfig() {
         <div class="row"><button class="btn" data-act="export">Exportar backup</button>
         <label class="btn">Importar backup<input type="file" accept="application/json,.json" hidden id="import"></label></div>
       </div>
+      <button class="card row between block-btn" data-act="show-terms"><span>📜 Termos de uso e privacidade</span><span>›</span></button>
       <div class="card">
         <h3>📲 Instalar no celular</h3>
         <p class="hint"><b>Android (Chrome):</b> menu ⋮ → “Instalar app” / “Adicionar à tela inicial”.<br>
@@ -1381,6 +1486,7 @@ const actions = {
       applyProgram(p, c === 'replace');
     });
   },
+  'show-terms': () => openTerms(),
   'logout-now': async () => { await cloud.signOut(); },
   'change-pw': () => {
     const sh = sheet(`
@@ -1465,6 +1571,7 @@ function rerenderList() {
 
 // ============ roteador ============
 let lastRoute = '';
+let termsSending = false;
 function render() {
   // links de confirmação/recuperação do Supabase chegam como #access_token=…; mostra a tela inicial
   const hash = /access_token|error_description/.test(location.hash) ? '#/' : (location.hash || '#/');
@@ -1481,6 +1588,12 @@ function render() {
     app.innerHTML = `<main class="welcome"><div class="hero"><img src="icons/icon.svg" alt="" width="72" height="72"><p>Carregando…</p></div></main>`;
     return;
   }
+  if (cloud.available() && !cloud.currentUser() && !localTermsOk()) {
+    app.innerHTML = viewOnboarding();
+    app.dataset.hash = '';
+    mountOnboarding(() => render());
+    return;
+  }
   if (cloud.available() && !cloud.currentUser()) {
     app.innerHTML = viewWelcome();
     app.dataset.hash = '';
@@ -1493,6 +1606,22 @@ function render() {
     app.dataset.hash = '';
     mountForceChange();
     return;
+  }
+  // termos: se aceitou na apresentação antes do login, registra na conta; senão pede o aceite
+  const tv = cloud.available() ? cloud.acceptedTermsVersion() : TERMS_VERSION;
+  if (tv !== undefined && tv !== TERMS_VERSION) {
+    if (localTermsOk() && !termsSending) {
+      termsSending = true;
+      cloud.acceptTerms(TERMS_VERSION).catch(() => {}).finally(() => { termsSending = false; render(); });
+      app.innerHTML = `<main class="welcome"><div class="hero"><p>Carregando…</p></div></main>`;
+      return;
+    }
+    if (!termsSending) {
+      app.innerHTML = viewTermsGate();
+      app.dataset.hash = '';
+      mountTermsGate();
+      return;
+    }
   }
   if (!p[0] && pendingImport()) return go('#/importar/' + pendingImport());
   if (!p[0]) html = viewHome();
