@@ -132,7 +132,6 @@ function viewHome() {
   const doneToday = new Set(S().history.filter(h => new Date(h.end).toDateString() === today).map(h => h.workoutId));
   const list = workouts.length ? `<div data-sortable="workouts">` + workouts.map(w => `
     <div class="card workout ${sw?.id === w.id ? 'next live' : !sw && next?.id === w.id ? 'next' : ''}" style="--c:${esc(w.color)}" data-sort-id="${w.id}" data-press="workout" data-id="${w.id}">
-      <span class="handle" data-drag aria-label="Arrastar para reordenar">⠿</span>
       <a class="workout-main" href="#/treino/${w.id}">
         ${badge(w, 'lg')}
         <div class="grow">
@@ -143,10 +142,7 @@ function viewHome() {
       </a>
       <button class="play" data-act="start" data-id="${w.id}" aria-label="Iniciar treino">▶</button>
     </div>`).join('') + `</div>
-    <p class="hint center">Segure um treino para renomear, compartilhar ou excluir · arraste no ⠿ para ordenar</p>
-    <button class="btn block" data-act="share-all">📤 Mandar meus treinos pra um amigo</button>
-    <button class="btn block dashed" data-act="quiz-start">🎯 Gerar um treino personalizado pro meu objetivo</button>
-    <a class="btn block dashed" href="#/programas">📋 Ver treinos prontos (iniciante, intermediário, avançado)</a>` : `
+    <p class="hint center">Segure um treino para ver opções ou arraste para mudar a ordem</p>` : `
     <div class="empty">
       <div class="big">🏋️</div>
       <h2>Monte seu primeiro treino</h2>
@@ -163,7 +159,7 @@ function viewHome() {
     actions: `<a class="icon-btn" href="#/conta" aria-label="Conta">${cloud.currentUser() ? '☁️' : '👤'}</a>
               <a class="icon-btn" href="#/config" aria-label="Configurações">⚙️</a>`,
     body: list,
-    fab: workouts.length ? `<button class="fab" data-act="new-workout">+ Novo treino</button>` : '',
+    fab: workouts.length ? `<button class="fab" data-act="new-menu">+ Novo treino</button>` : '',
   });
 }
 
@@ -233,7 +229,7 @@ function viewWorkout(id) {
     const m = findMethod(it.method);
     return `
       <div class="card item" data-sort-id="${it.id}" data-press="item" data-w="${w.id}" data-id="${it.id}">
-        <span class="handle" data-drag aria-label="Arrastar para reordenar">⠿<small class="pos">${i + 1}</small></span>
+        <span class="pos-n">${i + 1}</span>
         <a class="grow" href="#/treino/${w.id}/item/${it.id}">
           <h3>${esc(e?.name || 'Exercício removido')}</h3>
           <small>${itemSummary(it)}</small>
@@ -249,7 +245,7 @@ function viewWorkout(id) {
     back: '#/',
     body: `
       ${w.items.length ? `<button class="btn primary block" data-act="start" data-id="${w.id}">▶ Iniciar treino</button>` : ''}
-      ${items ? `<p class="hint center">Segure um exercício para mais opções · arraste no ⠿ para ordenar</p><div data-sortable="items" data-w="${w.id}">${items}</div>` : ''}
+      ${items ? `<p class="hint center">Segure um exercício para ver opções ou arraste para mudar a ordem</p><div data-sortable="items" data-w="${w.id}">${items}</div>` : ''}
       ${items ? '' : `<div class="empty"><p>Nenhum exercício ainda. Adicione os exercícios desse treino 👇</p></div>`}
       <a class="btn block dashed" href="#/treino/${w.id}/add">+ Adicionar exercícios</a>
       <button class="btn block" data-act="workout-menu" data-id="${w.id}">⋯ Opções do treino</button>`,
@@ -842,38 +838,60 @@ function itemMenu(wid, iid) {
   });
 }
 
-// segurar ~0,5s num card abre o menu (sem disparar o toque normal)
-let pressTimer = null, pressEl = null, pressXY = null, suppressClick = false;
+// Segurar o card (~0,45s): se soltar sem mexer, abre o menu; se arrastar, muda a ordem.
+// Deslizar sem segurar continua rolando a tela normalmente.
+let press = null, suppressClick = false;
+const openPressMenu = (el) => {
+  if (el.dataset.press === 'workout') workoutMenu(el.dataset.id);
+  if (el.dataset.press === 'item') itemMenu(el.dataset.w, el.dataset.id);
+};
+const endPress = () => {
+  if (!press) return;
+  clearTimeout(press.timer); clearTimeout(press.t0);
+  press.el.classList.remove('pressing', 'lifted');
+  press = null;
+};
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest('[data-press]');
   if (!el || e.target.closest('[data-drag], button, input, select, textarea')) return;
-  pressEl = el; pressXY = [e.clientX, e.clientY];
-  const t0 = setTimeout(() => el.classList.add('pressing'), 120);
-  pressTimer = setTimeout(() => {
-    clearTimeout(t0);
-    el.classList.remove('pressing');
+  press = { el, x: e.clientX, y: e.clientY, armed: false, dragging: false };
+  press.t0 = setTimeout(() => el.classList.add('pressing'), 120);
+  press.timer = setTimeout(() => {
+    if (!press) return;
+    press.armed = true;
     suppressClick = true;
+    el.classList.remove('pressing');
+    el.classList.add('lifted');
     navigator.vibrate?.(15);
-    if (el.dataset.press === 'workout') workoutMenu(el.dataset.id);
-    if (el.dataset.press === 'item') itemMenu(el.dataset.w, el.dataset.id);
-    pressEl = null;
-  }, 480);
-  el._t0 = t0;
+  }, 450);
 });
-const cancelPress = () => {
-  clearTimeout(pressTimer); pressTimer = null;
-  if (pressEl) { clearTimeout(pressEl._t0); pressEl.classList.remove('pressing'); pressEl = null; }
-};
 document.addEventListener('pointermove', (e) => {
-  if (pressEl && pressXY && Math.hypot(e.clientX - pressXY[0], e.clientY - pressXY[1]) > 10) cancelPress();
+  if (!press || press.dragging) return;
+  const moved = Math.hypot(e.clientX - press.x, e.clientY - press.y);
+  if (!press.armed) { if (moved > 10) endPress(); return; }   // deslizou sem segurar: é rolagem
+  if (moved > 8 && press.el.closest('[data-sortable]')) {      // segurou e arrastou: reordenar
+    press.dragging = true;
+    press.el.classList.remove('lifted');
+    startDrag(press.el, { clientY: press.y, preventDefault() {} });
+    endPress();
+  }
 });
-document.addEventListener('pointerup', cancelPress);
-document.addEventListener('pointercancel', cancelPress);
-window.addEventListener('scroll', cancelPress, { passive: true });
+document.addEventListener('pointerup', () => {
+  if (suppressClick) setTimeout(() => { suppressClick = false; }, 400);
+  if (press?.armed && !press.dragging) { const el = press.el; endPress(); openPressMenu(el); return; }
+  endPress();
+});
+document.addEventListener('pointercancel', endPress);
+// enquanto o card está "levantado", o dedo não rola a tela
+document.addEventListener('touchmove', (e) => { if (press?.armed || document.querySelector('.drag-ghost')) e.preventDefault(); }, { passive: false });
+window.addEventListener('scroll', () => { if (press && !press.armed) endPress(); }, { passive: true });
+// o "clique" que o navegador dispara ao soltar o dedo não pode abrir o treino nem fechar o menu recém-aberto
 document.addEventListener('click', (e) => {
-  if (suppressClick) { suppressClick = false; if (e.target.closest('[data-press]')) { e.preventDefault(); e.stopPropagation(); } }
+  if (suppressClick) { suppressClick = false; e.preventDefault(); e.stopPropagation(); }
 }, true);
 document.addEventListener('contextmenu', (e) => { if (e.target.closest('[data-press]')) e.preventDefault(); });
+// o card tem link e foto: impede o "arrastar link/imagem" do navegador, que cancelaria o nosso arrasto
+document.addEventListener('dragstart', (e) => { if (e.target.closest?.('[data-press]')) e.preventDefault(); });
 
 // ============ treinos prontos ============
 function nextWorkout() {
@@ -963,6 +981,7 @@ function addWorkouts(list, replace) {
 // ============ arrastar e soltar (reordenar) ============
 function startDrag(handle, ev) {
   const card = handle.closest('[data-sort-id]');
+  suppressClick = true;
   const list = card?.parentElement;
   if (!list?.dataset.sortable) return;
   ev.preventDefault();
@@ -1966,6 +1985,23 @@ const actions = {
   },
   'share': (el) => shareWorkouts([el.dataset.id]),
   'workout-menu': (el) => workoutMenu(el.dataset.id),
+  'new-menu': () => {
+    const sh = sheet(`
+      <h2>Novo treino</h2>
+      ${menuItem('🎯', 'Treino personalizado pro meu objetivo', 'quiz')}
+      ${menuItem('📋', 'Treinos prontos (iniciante, intermediário, avançado, estilos)', 'programs')}
+      ${menuItem('✏️', 'Montar do zero', 'blank')}
+      ${menuItem('📤', 'Mandar meus treinos pra um amigo', 'shareall')}`);
+    sh.addEventListener('click', (e) => {
+      const a = e.target.closest('[data-menu]')?.dataset.menu;
+      if (!a) return;
+      sh.close();
+      if (a === 'quiz') startQuiz();
+      if (a === 'programs') go('#/programas');
+      if (a === 'blank') setTimeout(() => openWorkoutForm(), 260);
+      if (a === 'shareall') setTimeout(() => shareWorkouts(S().workouts.map(w => w.id)), 260);
+    });
+  },
   'share-all': () => shareWorkouts(S().workouts.map(w => w.id)),
   'quiz-start': () => startQuiz(),
   'quiz-redo': () => startQuiz(),
