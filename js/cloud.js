@@ -212,6 +212,9 @@ export async function setNewPassword(password) {
 
 export async function getProfile() {
   if (!user) return null;
+  // com a rede social, os campos privados do perfil vêm por my_profile(); antes dela, pela tabela
+  const r = await client.rpc('my_profile');
+  if (!r.error) return r.data;
   const { data } = await client.from('profiles').select('name, username, must_change_password, terms_version').eq('id', user.id).maybeSingle();
   return data;
 }
