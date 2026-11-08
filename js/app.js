@@ -126,21 +126,17 @@ function page({ title, back, backAct, actions = '', body, nav = true, fab = '' }
 function viewHome() {
   const { workouts, session } = S();
   const sw = session && findWorkout(session.workoutId);
-  const banner = sw ? `
-    <a class="banner" href="#/sessao/${sw.id}">
-      ${badge(sw)} <div><b>Treino em andamento</b><small>${esc(sw.name)} — toque para continuar</small></div><span>▶</span>
-    </a>` : '';
 
   const next = nextWorkout();
   const today = new Date().toDateString();
   const doneToday = new Set(S().history.filter(h => new Date(h.end).toDateString() === today).map(h => h.workoutId));
   const list = workouts.length ? `<div data-sortable="workouts">` + workouts.map(w => `
-    <div class="card workout ${next?.id === w.id ? 'next' : ''}" style="--c:${esc(w.color)}" data-sort-id="${w.id}" data-press="workout" data-id="${w.id}">
+    <div class="card workout ${sw?.id === w.id ? 'next live' : !sw && next?.id === w.id ? 'next' : ''}" style="--c:${esc(w.color)}" data-sort-id="${w.id}" data-press="workout" data-id="${w.id}">
       <span class="handle" data-drag aria-label="Arrastar para reordenar">⠿</span>
       <a class="workout-main" href="#/treino/${w.id}">
         ${badge(w, 'lg')}
         <div class="grow">
-          ${doneToday.has(w.id) ? '<span class="done-tag">✅ Feito hoje</span>' : next?.id === w.id ? '<span class="next-tag">👉 Próximo treino</span>' : ''}
+          ${sw?.id === w.id ? '<span class="next-tag">⏱ Em andamento · toque no ▶ para continuar</span>' : doneToday.has(w.id) ? '<span class="done-tag">✅ Feito hoje</span>' : !sw && next?.id === w.id ? '<span class="next-tag">👉 Próximo treino</span>' : ''}
           <h3>${esc(w.name)}</h3>
           <small>${w.items.length ? `~${estMinutes(w)} min · ` : ''}${w.items.length} exercício${w.items.length === 1 ? '' : 's'}${w.groups?.length ? ' · ' + w.groups.map(groupName).join(', ') : ''}</small>
         </div>
@@ -166,7 +162,7 @@ function viewHome() {
     title: 'Meus treinos',
     actions: `<a class="icon-btn" href="#/conta" aria-label="Conta">${cloud.currentUser() ? '☁️' : '👤'}</a>
               <a class="icon-btn" href="#/config" aria-label="Configurações">⚙️</a>`,
-    body: banner + list,
+    body: list,
     fab: workouts.length ? `<button class="fab" data-act="new-workout">+ Novo treino</button>` : '',
   });
 }

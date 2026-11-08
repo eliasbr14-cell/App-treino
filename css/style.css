@@ -419,3 +419,5 @@ label.check input { flex: none; margin-top: 2px; }
 .rr-fill { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: var(--accent); transition: width .5s linear; }
 .finish-bar { position: fixed; left: 16px; right: 16px; bottom: calc(14px + var(--safe-b)); z-index: 6; padding: 18px; border: 0; border-radius: 18px;
   background: var(--accent); color: var(--accent-ink); font-size: 1.1rem; font-weight: 800; box-shadow: 0 10px 30px rgb(0 0 0 / .5); max-width: 608px; margin: 0 auto; }
+
+.workout.live .play { animation: pulse 1.6s ease-in-out infinite; }
