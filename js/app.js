@@ -3,7 +3,7 @@ const ALL_PROGRAMS = [...PROGRAMS, ...STYLE_PROGRAMS];
 import { getState, update, replaceState, uid } from './store.js';
 import * as cloud from './cloud.js';
 import { TERMS_VERSION, TERMS_HTML } from './terms.js';
-import { APP_NAME } from './brand.js';
+import { APP_NAME, APP_VERSION } from './brand.js';
 import { GOALS, LEVELS, TIMES, PLACES, FOCUS, PAINS, generatePlan } from './planner.js';
 
 // ============ utilitários ============
@@ -1809,6 +1809,11 @@ function viewConfig() {
         <b>iPhone (Safari):</b> botão compartilhar → “Adicionar à Tela de Início”.</p>
       </div>
       <div class="card">
+        <h3>ℹ️ Versão</h3>
+        <p class="hint">${APP_NAME} · versão ${APP_VERSION}</p>
+        <button class="btn small" data-act="force-update">🔄 Procurar atualização</button>
+      </div>
+      <div class="card">
         <h3>⚠️ Zona de perigo</h3>
         <button class="btn danger" data-act="reset">Apagar todos os dados</button>
       </div>`,
@@ -2026,6 +2031,16 @@ const actions = {
     });
   },
   'show-terms': () => openTerms(),
+  'force-update': async () => {
+    toast('Procurando atualização…');
+    try {
+      const regs = await navigator.serviceWorker?.getRegistrations() || [];
+      await Promise.all(regs.map(r => r.unregister()));
+      const keys = await caches?.keys() || [];
+      await Promise.all(keys.map(k => caches.delete(k)));
+    } catch {}
+    location.reload();
+  },
   'logout-now': async () => { await cloud.signOut(); },
   'change-pw': () => {
     const sh = sheet(`
@@ -2255,6 +2270,18 @@ cloud.onStatus(() => {
   if (el) el.innerHTML = statusText();
 });
 
+// modo offline + atualização automática: quando sai versão nova, o app recarrega sozinho
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('./sw.js').catch(() => {});
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloaded || S().session) return; // não recarrega no meio do treino
+    reloaded = true;
+    location.reload();
+  });
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then((reg) => {
+    const check = () => reg.update().catch(() => {});
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); });
+    setInterval(check, 30 * 60 * 1000);
+  }).catch(() => {});
 }
