@@ -80,7 +80,7 @@ const SLOTS = {
   flexora: ['*mesa-flexora', 'cadeira-flexora', 'flexora-em-pe', 'stiff'],
   gluteo: ['elevacao-pelvica', 'ponte'],
   gluteo2: ['*abdutora', 'gluteo-polia', 'gluteo-maquina', 'bulgaro', 'ponte'],
-  panturrilha: ['panturrilha-em-pe', 'panturrilha-sentado', 'panturrilha-leg'],
+  panturrilha: ['panturrilha-em-pe', 'panturrilha-sentado', '*panturrilha-leg'],
   core: ['prancha', 'abdominal-crunch', 'abdominal-polia', 'elevacao-pernas', 'abdominal-infra', 'russian-twist'],
   cardio: ['esteira', 'bike', 'eliptico', 'escada'],
 };
@@ -101,14 +101,23 @@ const DAYS = {
   costasDia: { name: 'Costas', groups: ['costas'], slots: ['puxada', 'remada', 'remada2', 'pulldown', 'lombarEx'] },
   ombrosDia: { name: 'Ombros e Abdômen', groups: ['ombros', 'abdomen'], slots: ['ombro', 'lateral', 'posterior', 'frontal', 'trapezio'] },
   bracosDia: { name: 'Braços', groups: ['biceps', 'triceps'], slots: ['biceps', 'triceps', 'biceps2', 'triceps2', 'bicepsFim', 'tricepsFim'] },
+  // iniciante: só dois treinos simples, alternados
+  iniA: { name: 'Peito, Ombro, Tríceps e Pernas', groups: ['peito', 'ombros', 'triceps', 'quadriceps'], slots: ['peito', 'ombro', 'tricepsMaq', 'extensora', 'legpress', 'lateral', 'panturrilha', 'adutoraEx'] },
+  iniB: { name: 'Costas, Bíceps, Pernas e Abdômen', groups: ['costas', 'biceps', 'posterior', 'abdomen'], slots: ['puxada', 'remada', 'biceps', 'flexora', 'gluteo2', 'core'] },
+  iniGluteoA: { name: 'Pernas e Glúteos', groups: ['quadriceps', 'gluteos', 'posterior'], slots: ['legpress', 'gluteo', 'extensora', 'flexora', 'gluteo2'] },
+  iniGluteoB: { name: 'Superiores', groups: ['peito', 'costas', 'ombros'], slots: ['peito', 'puxada', 'remada', 'ombro', 'triceps'] },
   gluteoDia: { name: 'Glúteos e Posterior', groups: ['gluteos', 'posterior'], slots: ['gluteo', 'terra', 'gluteo2', 'flexora', 'legpress', 'panturrilha'] },
 };
 SLOTS.flexaoFim = ['flexao', 'crossover'];
+SLOTS.tricepsMaq = ['*triceps-maquina', 'triceps-pulley', 'triceps-frances', 'triceps-banco'];
+SLOTS.adutoraEx = ['adutora', 'ponte'];
 SLOTS.bicepsFim = ['rosca-concentrada', 'rosca-alternada'];
 SLOTS.tricepsFim = ['triceps-coice', 'triceps-banco'];
 
 function split(days, level, goal) {
   const glute = goal === 'gluteos';
+  // iniciante não tem o gás de quem já treina: dois treinos simples, alternando A e B
+  if (level === 'iniciante') return glute ? ['iniGluteoA', 'iniGluteoB'] : ['iniA', 'iniB'];
   if (days <= 2) return ['fullA', 'fullB'];
   if (days === 3) {
     if (glute) return ['inferiores', 'superiores', 'gluteoDia'];
@@ -159,7 +168,8 @@ export function generatePlan(answers, exercises) {
   const p = PARAMS[goal] || PARAMS.massa;
   const cardioGoal = ['emagrecer', 'barriga', 'definir', 'saude'].includes(goal);
   // com cardio no fim, um exercício a menos para caber no tempo
-  const perDay = ({ curto: 5, medio: 6, longo: 8 }[time] || 6) - (cardioGoal && place !== 'casa' ? 1 : 0);
+  let perDay = ({ curto: 5, medio: 6, longo: 8 }[time] || 6) - (cardioGoal && place !== 'casa' ? 1 : 0);
+  if (level === 'iniciante') perDay = { curto: 5, medio: 7, longo: 8 }[time] || 7;
 
   const pick = (slot) => {
     let list = (SLOTS[slot] || []).slice();
@@ -184,12 +194,15 @@ export function generatePlan(answers, exercises) {
       if (!ex || seen.has(ex)) continue;
       seen.add(ex); used.add(ex);
       const compound = COMPOUND_SLOTS.has(slot);
-      let sets = p.sets + (level === 'avancado' && compound ? 1 : 0) - (level === 'iniciante' && goal === 'forca' ? 1 : 0);
+      let sets = p.sets + (level === 'avancado' && compound ? 1 : 0);
+      let rest = compound ? p.compoundRest : p.rest;
       let reps = compound && p.compoundReps ? p.compoundReps : p.reps;
       // força: só os básicos pesados; os isolados ficam em 3x8-10
       if (goal === 'forca' && !compound) { sets = 3; reps = '8-10'; }
-      if (level === 'iniciante' && goal === 'forca' && compound) reps = '8';
-      items.push({ exerciseId: ex, sets, reps, rest: compound ? p.compoundRest : p.rest, method: 'normal', notes: '', _compound: compound });
+      // iniciante: tudo 3 x 12 a 15, descanso curto, carga leve
+      if (level === 'iniciante') { sets = 3; reps = goal === 'forca' ? '10-12' : '12-15'; rest = slot === 'panturrilha' ? 60 : 45; }
+      if (ex === 'prancha') reps = '30-45s';
+      items.push({ exerciseId: ex, sets, reps, rest, method: 'normal', notes: '', _compound: compound });
     }
     // métodos para quem já treina: drop-set no último isolado
     if (level !== 'iniciante' && ['massa', 'definir', 'gluteos'].includes(goal) && items.length > 3) {
@@ -201,13 +214,17 @@ export function generatePlan(answers, exercises) {
       items[items.length - 2].notes = 'Bi-set com o próximo exercício, sem descanso entre eles';
     }
     // abdômen: barriga/foco abdômen em todo treino; demais, em dias alternados
-    const wantsCore = goal === 'barriga' || focus.includes('abdomen') || i % 2 === 0;
+    const wantsCore = level !== 'iniciante' && (goal === 'barriga' || focus.includes('abdomen') || i % 2 === 0);
     if (wantsCore && !items.some(it => SLOTS.core.includes(it.exerciseId))) {
       const core = (SLOTS.core.filter(x => exists.has(x) && (place !== 'casa' || HOME.has(x)) && !used.has(x))[0]) || 'prancha';
       used.add(core);
       items.push({ exerciseId: core, sets: 3, reps: core === 'prancha' ? '30-45s' : '15', rest: 40, method: 'normal', notes: '' });
     }
-    if (cardioGoal) {
+    // iniciante na academia: cardio leve no começo (aquecimento) e no fim
+    if (level === 'iniciante' && place !== 'casa') {
+      items.unshift({ exerciseId: SLOTS.cardio[(i * 2) % SLOTS.cardio.length], sets: 1, reps: time === 'curto' ? '10 min' : '15 min', rest: 0, method: 'normal', notes: 'Aquecimento em ritmo leve a moderado' });
+      if (time !== 'curto' || cardioGoal) items.push({ exerciseId: SLOTS.cardio[(i * 2 + 1) % SLOTS.cardio.length], sets: 1, reps: cardioGoal ? '20 min' : '15 min', rest: 0, method: 'normal', notes: '' });
+    } else if (cardioGoal) {
       const min = goal === 'saude' ? '15 min' : time === 'curto' ? '15 min' : '20-30 min';
       // em casa não há aparelho de cardio na lista: vai como dica
       const cardio = place === 'casa' ? null : SLOTS.cardio[i % SLOTS.cardio.length];
@@ -227,6 +244,7 @@ function tipsFor({ goal, level, place, pains = [], days }) {
   if (goal === 'massa') t.push('Para crescer: aumente a carga aos poucos quando conseguir fazer todas as repetições, coma proteína todo dia e durma bem. Músculo cresce no descanso.');
   if (goal === 'forca') t.push('Nos exercícios principais, descanse bem (2–3 min) e capriche na técnica antes de subir o peso.');
   if (goal === 'gluteos') t.push('Glúteo responde a carga e amplitude: elevação pélvica pesada e controle na descida fazem a diferença.');
+  if (level === 'iniciante') t.push(`Começando, o melhor é simples: só dois treinos (A e B) com poucos exercícios. Alterne A e B${Number(days) > 3 ? ' — e 3 ou 4 dias por semana já está ótimo nesse começo, o descanso também faz o músculo crescer' : ` nos seus ${days} dias`}. Depois de 2 ou 3 meses, refaça as perguntas como “Já treino” para subir de nível.`);
   if (level === 'iniciante') t.push('Começando: nas primeiras 2–3 semanas use cargas leves para aprender o movimento. Deixe 2–3 repetições “sobrando” em cada série.');
   if (place === 'casa' && ['emagrecer', 'barriga', 'definir', 'saude'].includes(goal)) t.push('Cardio em casa: no fim de cada treino, 15–30 min de caminhada rápida, corrida, polichinelo ou pular corda.');
   if (place === 'casa') t.push('Em casa: se ficar fácil, faça mais repetições, desça mais devagar ou pegue halteres mais pesados.');

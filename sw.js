@@ -1,5 +1,5 @@
 // Service worker: deixa o app funcionando offline (na academia sem sinal).
-const CACHE = 'app-treino-v17';
+const CACHE = 'app-treino-v19';
 const SHELL = [
   './', './index.html', './css/style.css', './js/app.js', './js/data.js', './js/store.js', './js/cloud.js', './js/config.js', './js/terms.js', './js/brand.js', './js/planner.js', './js/vendor/supabase.js',
   './manifest.webmanifest', './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png',

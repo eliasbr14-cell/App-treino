@@ -38,6 +38,20 @@ function fmtDuration(ms) {
 
 const ytSearch = (name) => `https://www.youtube.com/results?search_query=${encodeURIComponent('como fazer ' + name + ' execução correta')}`;
 
+const isCardio = (exId) => findExercise(exId)?.group === 'cardio';
+const fmtReps = (r) => String(r).replace(/^(\d+)\s*-\s*(\d+)$/, '$1 a $2');
+const fmtMinutes = (r) => String(r).replace(/\s*min$/, ' minutos');
+// tempo estimado: cardio pelos minutos; musculação ≈ 30s por série + descanso
+function estMinutes(w) {
+  let sec = 0;
+  for (const it of w.items) {
+    if (isCardio(it.exerciseId)) { sec += (parseInt(it.reps) || 10) * 60; continue; }
+    sec += it.sets * (30 + (it.rest || 0)) + 15;
+  }
+  return Math.max(5, Math.round(sec / 300) * 5);
+}
+const thumbBadge = (e, it) => `<span class="thumb-wrap">${thumb(e)}${it?.machine ? `<b class="machine-no">${esc(it.machine)}</b>` : ''}</span>`;
+
 function itemSummary(it) {
   const parts = [`${it.sets} × ${esc(it.reps)}`];
   if (it.load) parts.push(esc(it.load));
@@ -89,13 +103,13 @@ function sheet(html) {
 }
 
 // ============ layout ============
-function page({ title, back, actions = '', body, nav = true, fab = '' }) {
+function page({ title, back, backAct, actions = '', body, nav = true, fab = '' }) {
   const hash = location.hash || '#/';
   const tab = (h, icon, label) =>
     `<a href="${h}" class="${hash === h || (h !== '#/' && hash.startsWith(h)) ? 'active' : ''}"><span>${icon}</span>${label}</a>`;
   return `
     <header class="top">
-      ${back ? `<a class="icon-btn" href="${back}" aria-label="Voltar">←</a>` : ''}
+      ${back ? `<a class="icon-btn" href="${back}" aria-label="Voltar">←</a>` : backAct ? `<button class="icon-btn" data-act="${backAct}" aria-label="Voltar">←</button>` : ''}
       <h1>${title}</h1>
       <div class="top-actions">${actions}</div>
     </header>
@@ -122,18 +136,19 @@ function viewHome() {
   const today = new Date().toDateString();
   const doneToday = new Set(S().history.filter(h => new Date(h.end).toDateString() === today).map(h => h.workoutId));
   const list = workouts.length ? `<div data-sortable="workouts">` + workouts.map(w => `
-    <div class="card workout ${next?.id === w.id ? 'next' : ''}" style="--c:${esc(w.color)}" data-sort-id="${w.id}">
+    <div class="card workout ${next?.id === w.id ? 'next' : ''}" style="--c:${esc(w.color)}" data-sort-id="${w.id}" data-press="workout" data-id="${w.id}">
       <span class="handle" data-drag aria-label="Arrastar para reordenar">⠿</span>
       <a class="workout-main" href="#/treino/${w.id}">
         ${badge(w, 'lg')}
         <div class="grow">
           ${doneToday.has(w.id) ? '<span class="done-tag">✅ Feito hoje</span>' : next?.id === w.id ? '<span class="next-tag">👉 Próximo treino</span>' : ''}
           <h3>${esc(w.name)}</h3>
-          <small>${w.items.length} exercício${w.items.length === 1 ? '' : 's'}${w.groups?.length ? ' · ' + w.groups.map(groupName).join(', ') : ''}</small>
+          <small>${w.items.length ? `~${estMinutes(w)} min · ` : ''}${w.items.length} exercício${w.items.length === 1 ? '' : 's'}${w.groups?.length ? ' · ' + w.groups.map(groupName).join(', ') : ''}</small>
         </div>
       </a>
       <button class="play" data-act="start" data-id="${w.id}" aria-label="Iniciar treino">▶</button>
     </div>`).join('') + `</div>
+    <p class="hint center">Segure um treino para renomear, compartilhar ou excluir · arraste no ⠿ para ordenar</p>
     <button class="btn block" data-act="share-all">📤 Mandar meus treinos pra um amigo</button>
     <button class="btn block dashed" data-act="quiz-start">🎯 Gerar um treino personalizado pro meu objetivo</button>
     <a class="btn block dashed" href="#/programas">📋 Ver treinos prontos (iniciante, intermediário, avançado)</a>` : `
@@ -222,7 +237,7 @@ function viewWorkout(id) {
     const e = findExercise(it.exerciseId);
     const m = findMethod(it.method);
     return `
-      <div class="card item" data-sort-id="${it.id}">
+      <div class="card item" data-sort-id="${it.id}" data-press="item" data-w="${w.id}" data-id="${it.id}">
         <span class="handle" data-drag aria-label="Arrastar para reordenar">⠿<small class="pos">${i + 1}</small></span>
         <a class="grow" href="#/treino/${w.id}/item/${it.id}">
           <h3>${esc(e?.name || 'Exercício removido')}</h3>
@@ -230,21 +245,19 @@ function viewWorkout(id) {
           ${m.id !== 'normal' ? `<span class="tag">${esc(m.name)}</span>` : ''}
           ${it.notes ? `<p class="notes">${esc(it.notes)}</p>` : ''}
         </a>
-        ${e ? `<a href="#/exercicio/${e.id}" aria-label="Ver como faz">${thumb(e)}</a>` : ''}
+        ${e ? `<a href="#/exercicio/${e.id}" aria-label="Ver como faz">${thumbBadge(e, it)}</a>` : ''}
       </div>`;
   }).join('');
 
   return page({
     title: `${badge(w)} ${esc(w.name)}`,
     back: '#/',
-    actions: `<button class="icon-btn" data-act="share" data-id="${w.id}" aria-label="Compartilhar">📤</button>
-              <button class="icon-btn" data-act="edit-workout" data-id="${w.id}" aria-label="Editar">✏️</button>
-              <button class="icon-btn" data-act="delete-workout" data-id="${w.id}" aria-label="Excluir">🗑️</button>`,
     body: `
       ${w.items.length ? `<button class="btn primary block" data-act="start" data-id="${w.id}">▶ Iniciar treino</button>` : ''}
-      ${items ? `<p class="hint center">Segure no ⠿ e arraste para mudar a ordem</p><div data-sortable="items" data-w="${w.id}">${items}</div>` : ''}
+      ${items ? `<p class="hint center">Segure um exercício para mais opções · arraste no ⠿ para ordenar</p><div data-sortable="items" data-w="${w.id}">${items}</div>` : ''}
       ${items ? '' : `<div class="empty"><p>Nenhum exercício ainda. Adicione os exercícios desse treino 👇</p></div>`}
-      <a class="btn block dashed" href="#/treino/${w.id}/add">+ Adicionar exercícios</a>`,
+      <a class="btn block dashed" href="#/treino/${w.id}/add">+ Adicionar exercícios</a>
+      <button class="btn block" data-act="workout-menu" data-id="${w.id}">⋯ Opções do treino</button>`,
   });
 }
 
@@ -338,6 +351,8 @@ function viewItem(wid, iid) {
           <div><label>Descanso (s)</label><input name="rest" type="number" min="0" step="5" value="${it.rest}" inputmode="numeric"></div>
         </div>
         <div class="chips">${[30, 45, 60, 90, 120, 180].map(s => `<button type="button" class="chip" data-rest="${s}">${s}s</button>`).join('')}</div>
+        <label>Nº do aparelho na sua academia <small>(opcional)</small></label>
+        <input name="machine" maxlength="6" inputmode="numeric" placeholder="Ex.: 20" value="${esc(it.machine || '')}">
         <label>Método</label>
         <select name="method">${methodOptions(it.method)}</select>
         <p class="hint" id="mdesc">${esc(m.desc)}</p>
@@ -381,6 +396,7 @@ function mountItem(wid, iid) {
         rest: Math.max(0, +form.rest.value || 0),
         method: form.method.value === '__new' ? 'normal' : form.method.value,
         notes: form.notes.value.trim(),
+        machine: form.machine.value.trim(),
       });
     });
     toast('Salvo ✓');
@@ -748,6 +764,125 @@ function viewPlan() {
   });
 }
 
+// ============ segurar para abrir opções ============
+const menuItem = (icon, label, act, cls = '') => `<button class="menu-item ${cls}" data-menu="${act}"><span>${icon}</span>${label}</button>`;
+
+function workoutMenu(id) {
+  const w = findWorkout(id);
+  if (!w) return;
+  const sh = sheet(`
+    <div class="menu-head">${badge(w, 'lg')}<div><h2 style="margin:0">${esc(w.name)}</h2><small class="hint">${w.items.length} exercícios</small></div></div>
+    ${menuItem('▶', 'Iniciar treino', 'start')}
+    ${menuItem('✏️', 'Renomear', 'rename')}
+    ${menuItem('🎨', 'Letra, cor e grupos', 'edit')}
+    ${menuItem('📤', 'Compartilhar', 'share')}
+    ${menuItem('📄', 'Duplicar', 'dup')}
+    ${menuItem('🗑️', 'Excluir treino', 'delete', 'danger')}`);
+  sh.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-menu]')?.dataset.menu;
+    if (!a) return;
+    sh.close();
+    if (a === 'start') startWorkout(id);
+    if (a === 'rename') renameWorkout(id);
+    if (a === 'edit') openWorkoutForm(findWorkout(id));
+    if (a === 'share') shareWorkouts([id]);
+    if (a === 'dup') {
+      update(st => {
+        const src = st.workouts.find(x => x.id === id);
+        const used = new Set(st.workouts.map(x => x.letter));
+        st.workouts.push({ ...structuredClone(src), id: uid(), letter: LETTERS.find(l => !used.has(l)) || src.letter,
+          name: (src.name + ' (cópia)').slice(0, 40), items: src.items.map(it => ({ ...structuredClone(it), id: uid() })) });
+      });
+      toast('Treino duplicado ✓'); render();
+    }
+    if (a === 'delete') {
+      if (!confirm(`Excluir o treino ${w.letter} – ${w.name}?`)) return;
+      update(st => { st.workouts = st.workouts.filter(x => x.id !== id); if (st.session?.workoutId === id) st.session = null; });
+      toast('Treino excluído'); go('#/'); render();
+    }
+  });
+}
+
+function renameWorkout(id) {
+  const w = findWorkout(id);
+  const sh = sheet(`
+    <form id="rnform"><h2>Renomear treino</h2>
+      <div class="row" style="margin-top:0">${badge(w, 'lg')}<input name="name" class="grow" maxlength="40" required value="${esc(w.name)}"></div>
+      <div class="row end"><button type="button" class="btn" data-close>Cancelar</button><button class="btn primary">Salvar</button></div>
+    </form>`);
+  const f = sh.querySelector('form');
+  setTimeout(() => { f.name.focus(); f.name.select(); }, 300);
+  f.addEventListener('submit', (e) => {
+    e.preventDefault();
+    update(st => { st.workouts.find(x => x.id === id).name = f.name.value.trim(); });
+    sh.close(); toast('Nome salvo ✓'); render();
+  });
+}
+
+function itemMenu(wid, iid) {
+  const w = findWorkout(wid);
+  const it = w?.items.find(i => i.id === iid);
+  if (!it) return;
+  const e = findExercise(it.exerciseId);
+  const sh = sheet(`
+    <div class="menu-head">${thumb(e)}<div><h2 style="margin:0">${esc(e?.name || 'Exercício')}</h2><small class="hint">${itemSummary(it)}</small></div></div>
+    ${menuItem('✏️', 'Editar séries, carga e método', 'edit')}
+    ${menuItem('🔄', 'Trocar por outra variação', 'swap')}
+    ${e ? menuItem('📋', 'Ver como faz', 'how') : ''}
+    ${menuItem('📄', 'Duplicar', 'dup')}
+    ${menuItem('🗑️', 'Remover do treino', 'delete', 'danger')}`);
+  sh.addEventListener('click', (ev) => {
+    const a = ev.target.closest('[data-menu]')?.dataset.menu;
+    if (!a) return;
+    sh.close();
+    if (a === 'edit') go(`#/treino/${wid}/item/${iid}`);
+    if (a === 'swap') setTimeout(() => openSwap(wid, iid, true), 260);
+    if (a === 'how') go(`#/exercicio/${e.id}`);
+    if (a === 'dup') {
+      update(st => { const items = st.workouts.find(x => x.id === wid).items; const i = items.findIndex(x => x.id === iid); items.splice(i + 1, 0, { ...structuredClone(items[i]), id: uid() }); });
+      toast('Exercício duplicado ✓'); render();
+    }
+    if (a === 'delete') {
+      if (!confirm(`Remover ${e?.name || 'este exercício'} do treino?`)) return;
+      update(st => { const ww = st.workouts.find(x => x.id === wid); ww.items = ww.items.filter(x => x.id !== iid); });
+      toast('Exercício removido'); render();
+    }
+  });
+}
+
+// segurar ~0,5s num card abre o menu (sem disparar o toque normal)
+let pressTimer = null, pressEl = null, pressXY = null, suppressClick = false;
+document.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest('[data-press]');
+  if (!el || e.target.closest('[data-drag], button, input, select, textarea')) return;
+  pressEl = el; pressXY = [e.clientX, e.clientY];
+  const t0 = setTimeout(() => el.classList.add('pressing'), 120);
+  pressTimer = setTimeout(() => {
+    clearTimeout(t0);
+    el.classList.remove('pressing');
+    suppressClick = true;
+    navigator.vibrate?.(15);
+    if (el.dataset.press === 'workout') workoutMenu(el.dataset.id);
+    if (el.dataset.press === 'item') itemMenu(el.dataset.w, el.dataset.id);
+    pressEl = null;
+  }, 480);
+  el._t0 = t0;
+});
+const cancelPress = () => {
+  clearTimeout(pressTimer); pressTimer = null;
+  if (pressEl) { clearTimeout(pressEl._t0); pressEl.classList.remove('pressing'); pressEl = null; }
+};
+document.addEventListener('pointermove', (e) => {
+  if (pressEl && pressXY && Math.hypot(e.clientX - pressXY[0], e.clientY - pressXY[1]) > 10) cancelPress();
+});
+document.addEventListener('pointerup', cancelPress);
+document.addEventListener('pointercancel', cancelPress);
+window.addEventListener('scroll', cancelPress, { passive: true });
+document.addEventListener('click', (e) => {
+  if (suppressClick) { suppressClick = false; if (e.target.closest('[data-press]')) { e.preventDefault(); e.stopPropagation(); } }
+}, true);
+document.addEventListener('contextmenu', (e) => { if (e.target.closest('[data-press]')) e.preventDefault(); });
+
 // ============ treinos prontos ============
 function nextWorkout() {
   const { workouts, history } = S();
@@ -981,46 +1116,71 @@ function startWorkout(id) {
     if (!confirm('Já tem um treino em andamento. Descartar e começar este?')) return go(`#/sessao/${st.session.workoutId}`);
   }
   if (!st.session || st.session.workoutId !== id) {
-    update(s => { s.session = { workoutId: id, start: Date.now(), checks: {}, loads: {}, swaps: {} }; });
+    update(s => { s.session = { workoutId: id, start: Date.now(), checks: {}, loads: {}, swaps: {}, active: null }; });
+    restReady = null; rest = null;
   }
   go(`#/sessao/${id}`);
 }
+
+let restReady = null; // { itemId, secs }: descanso esperando o ▶
+
+const doneSets = (ses, it) => Math.min(it.sets, (ses.checks[it.id] || []).filter(Boolean).length);
 
 function viewSession(id) {
   const w = findWorkout(id);
   const ses = S().session;
   if (!w || !ses || ses.workoutId !== id) return viewWorkout(id);
-  const total = w.items.reduce((a, i) => a + i.sets, 0);
-  const done = w.items.reduce((a, i) => a + (ses.checks[i.id] || []).filter(Boolean).length, 0);
-  const pct = total ? Math.round(done / total * 100) : 0;
+  const active = ses.active && w.items.find(i => i.id === ses.active);
+  return active ? viewSessionExercise(w, ses, active) : viewSessionList(w, ses);
+}
 
+// cartão de descanso: aparece depois de terminar uma série, com ▶ para começar
+function restBlock() {
+  if (rest) return `
+    <div class="rest-big" id="restbig">
+      <div class="ring"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" class="track"/><circle cx="60" cy="60" r="52" class="bar" id="restring"/></svg>
+        <div class="ring-txt"><small>Descanso</small><b id="restbig-time">--:--</b></div></div>
+      <div class="row center-row"><button class="btn" data-act="rest-add">+15s</button><button class="btn" data-act="rest-skip">Pular descanso</button></div>
+    </div>`;
+  if (restReady) return `
+    <div class="rest-ready">
+      <div><small>Hora do descanso</small><b>${fmtDuration(restReady.secs * 1000)}</b></div>
+      <button class="rest-play" data-act="rest-play" aria-label="Iniciar descanso">▶</button>
+      <button class="link" data-act="rest-dismiss">pular</button>
+    </div>`;
+  return '';
+}
+
+function viewSessionList(w, ses) {
+  const { done, total } = sessionProgress();
+  const pct = total ? Math.round(done / total * 100) : 0;
   const swaps = ses.swaps || {};
   const cards = w.items.map((it) => {
     const e = findExercise(swaps[it.id] || it.exerciseId);
-    const orig = swaps[it.id] ? findExercise(it.exerciseId) : null;
-    const m = findMethod(it.method);
-    const checks = ses.checks[it.id] || [];
-    const complete = checks.filter(Boolean).length >= it.sets;
+    const cardio = e?.group === 'cardio';
+    const n = doneSets(ses, it);
+    const complete = n >= it.sets;
+    const running = rest?.itemId === it.id;
     return `
-      <div class="card session-item ${complete ? 'complete' : ''}">
-        <div class="row between">
-          <div class="grow">
-            <h3>${complete ? '✅ ' : ''}${esc(e?.name || 'Exercício')}</h3>
-            <small>${it.sets} × ${esc(it.reps)} · ⏱ ${it.rest}s</small>
-            ${m.id !== 'normal' ? `<span class="tag" data-act="method-info" data-id="${m.id}">${esc(m.name)} ⓘ</span>` : ''}
-          </div>
-          ${e ? `<a href="#/exercicio/${e.id}" aria-label="Ver como faz">${thumb(e)}</a>` : ''}
+      <div class="card sess2 ${complete ? 'complete' : ''}">
+        <div class="sess2-top">
+          <button class="chk ${complete ? 'on' : ''}" data-act="check-all" data-id="${it.id}" aria-label="${complete ? 'Desmarcar' : 'Marcar como feito'}">${complete ? '✓' : ''}</button>
+          <button class="sess2-main" data-act="ex-start" data-id="${it.id}">
+            ${cardio ? `<span class="thumb cardio-thumb">❤️</span>` : thumbBadge(e, it)}
+            <span class="grow">
+              <b>${cardio ? 'Cardio – ' : ''}${esc(e?.name || 'Exercício')}</b>
+              <small>${cardio ? esc(fmtMinutes(it.reps)) : `${it.sets}x ${esc(fmtReps(it.reps))}`}${!cardio && n && !complete ? ` · ${n}/${it.sets} séries` : ''}</small>
+            </span>
+            ${cardio ? '' : '<span class="chev">›</span>'}
+          </button>
         </div>
-        ${orig ? `<p class="swapped">🔄 Hoje no lugar de <b>${esc(orig.name)}</b> · <button class="link" data-act="unswap" data-id="${it.id}">desfazer</button></p>` : ''}
-        ${it.notes ? `<p class="notes">${esc(it.notes)}</p>` : ''}
-        <div class="row">
-          <label class="load">Carga <input data-load="${it.id}" value="${esc(ses.loads[it.id] ?? it.load)}" placeholder="—"></label>
-          <button class="btn small" data-act="swap" data-id="${it.id}" data-w="${w.id}">🔄 Trocar</button>
-        </div>
-        <div class="sets">${Array.from({ length: it.sets }, (_, s) => `
-          <button class="set ${checks[s] ? 'on' : ''}" data-act="check" data-id="${it.id}" data-s="${s}">${checks[s] ? '✓' : s + 1}</button>`).join('')}
-          <button class="set-all ${complete ? 'on' : ''}" data-act="check-all" data-id="${it.id}">${complete ? '↩ Desmarcar' : '✓ Fiz tudo'}</button>
-        </div>
+        ${cardio || !it.rest ? '' : `
+        <div class="sess2-rest ${running ? 'running' : ''}" id="rr-${it.id}">
+          <span class="rr-fill"></span>
+          <b class="rr-time">${fmtDuration((running ? Math.max(0, Math.ceil((rest.end - Date.now()) / 1000)) : it.rest) * 1000)}</b>
+          <small>(Descanso entre séries)</small>
+          <button class="rr-play" data-act="rest-row" data-id="${it.id}" aria-label="${running ? 'Parar descanso' : 'Iniciar descanso'}">${running ? '■' : '▶'}</button>
+        </div>`}
       </div>`;
   }).join('');
 
@@ -1031,11 +1191,52 @@ function viewSession(id) {
     actions: `<span class="clock" id="clock">${fmtDuration(Date.now() - ses.start)}</span>`,
     body: `
       <div class="progress"><div style="width:${pct}%"></div></div>
-      <p class="hint center">${done} de ${total} séries · ${pct}%</p>
+      <p class="hint center">${done} de ${total} séries · marque o quadradinho quando terminar o exercício, ou toque nele para ir série por série</p>
       ${cards}
-      <div class="row between">
-        <button class="btn danger" data-act="cancel-session">Descartar</button>
-        <button class="btn primary" data-act="finish">🏁 Finalizar treino</button>
+      <button class="link center-link" data-act="cancel-session">Descartar treino</button>`,
+    fab: `<button class="finish-bar" data-act="finish">Finalizar treino</button>`,
+  });
+}
+
+function viewSessionExercise(w, ses, it) {
+  const swaps = ses.swaps || {};
+  const e = findExercise(swaps[it.id] || it.exerciseId);
+  const orig = swaps[it.id] ? findExercise(it.exerciseId) : null;
+  const m = findMethod(it.method);
+  const n = doneSets(ses, it);
+  const complete = n >= it.sets;
+  const restHere = rest?.itemId === it.id || restReady?.itemId === it.id;
+  const main = restHere ? restBlock() : complete
+    ? `<div class="ex-complete"><div class="big">✅</div><b>Exercício concluído!</b><button class="btn primary block" data-act="ex-back">Escolher o próximo</button></div>`
+    : e?.group === 'cardio'
+      ? `<button class="set-done" data-act="set-done" data-id="${it.id}"><small>${esc(fmtMinutes(it.reps))}</small>✓ Terminei o cardio</button>`
+      : `<button class="set-done" data-act="set-done" data-id="${it.id}"><small>Série ${n + 1} de ${it.sets}</small>✓ Terminei a série</button>`;
+  return page({
+    title: esc(e?.name || 'Exercício'),
+    backAct: 'ex-back',
+    nav: false,
+    actions: `<span class="clock" id="clock">${fmtDuration(Date.now() - ses.start)}</span>`,
+    body: `
+      ${e?.demo ? `<div class="demo ex-demo"><img src="img/ex/${e.id}-0.jpg" alt=""><img class="b" src="img/ex/${e.id}-1.jpg" alt=""></div>` : ''}
+      ${it.machine ? `<p class="center"><span class="machine-pill">Aparelho nº ${esc(it.machine)}</span></p>` : ''}
+      <div class="ex-target">
+        <div><b>${esc(fmtReps(it.reps))}</b><small>${/min|s$/.test(it.reps) ? 'tempo' : 'repetições'}</small></div>
+        <div><b>${n}/${it.sets}</b><small>séries</small></div>
+        <div><b>${it.rest || 0}s</b><small>descanso</small></div>
+      </div>
+      <div class="big-sets">${Array.from({ length: it.sets }, (_, s) => `<i class="${s < n ? 'on' : s === n && !complete ? 'cur' : ''}">${s < n ? '✓' : s + 1}</i>`).join('')}</div>
+      ${main}
+      ${m.id !== 'normal' ? `<p class="center"><span class="tag" data-act="method-info" data-id="${m.id}">${esc(m.name)} ⓘ</span></p>` : ''}
+      ${orig ? `<p class="swapped center">🔄 Hoje no lugar de <b>${esc(orig.name)}</b> · <button class="link" data-act="unswap" data-id="${it.id}">desfazer</button></p>` : ''}
+      ${it.notes ? `<p class="notes center">${esc(it.notes)}</p>` : ''}
+      <div class="card ex-tools">
+        <label class="load">Carga <input data-load="${it.id}" value="${esc(ses.loads[it.id] ?? it.load)}" placeholder="—"></label>
+        <button class="btn small" data-act="swap" data-id="${it.id}" data-w="${w.id}">🔄 Trocar</button>
+        ${e ? `<a class="btn small" href="#/exercicio/${e.id}">📋 Como faz</a>` : ''}
+      </div>
+      <div class="row between ex-links">
+        <button class="link" data-act="set-undo" data-id="${it.id}" ${n ? '' : 'hidden'}>↩ Desfazer última série</button>
+        <button class="link" data-act="check-all" data-id="${it.id}">${complete ? 'Desmarcar exercício' : 'Marcar todas como feitas'}</button>
       </div>`,
   });
 }
@@ -1086,7 +1287,28 @@ function renderRest() {
   const visible = /^#\/(sessao|exercicio)\//.test(location.hash);
   if (!rest || !visible) { bar?.remove(); if (rest && Date.now() >= rest.end) rest = null; return; }
   const left = Math.ceil((rest.end - Date.now()) / 1000);
-  if (left <= 0) { rest = null; bar?.remove(); beep(); toast('Bora! Próxima série 💪'); return; }
+  if (left <= 0) {
+    rest = null; bar?.remove(); beep(); toast('Bora! Próxima série 💪');
+    if (/^#\/sessao\//.test(location.hash)) render();
+    return;
+  }
+  const row = rest.itemId && document.getElementById('rr-' + rest.itemId);
+  if (row) {
+    bar?.remove();
+    row.querySelector('.rr-time').textContent = fmtDuration(left * 1000);
+    row.querySelector('.rr-fill').style.width = `${100 - (left / rest.total) * 100}%`;
+    return;
+  }
+  const big = document.getElementById('restbig');
+  if (big) {
+    bar?.remove();
+    document.getElementById('restbig-time').textContent = fmtDuration(left * 1000);
+    const c = 2 * Math.PI * 52;
+    const ring = document.getElementById('restring');
+    ring.style.strokeDasharray = c;
+    ring.style.strokeDashoffset = c * (1 - left / rest.total);
+    return;
+  }
   if (!bar) {
     bar = document.createElement('div');
     bar.id = 'rest';
@@ -1129,7 +1351,7 @@ function finishWorkout(auto = false) {
     st.history.unshift({ id: uid(), workoutId: w.id, name: w.name, letter: w.letter, color: w.color, start: ses.start, end: Date.now(), doneSets: done, totalSets: total });
     st.session = null;
   });
-  rest = null; stopSessionUi(); renderRest();
+  rest = null; restReady = null; stopSessionUi(); renderRest();
   go('#/');
   const next = nextWorkout();
   const mins = Math.round((Date.now() - ses.start) / 60000);
@@ -1697,11 +1919,47 @@ const actions = {
       st.session.checks[id] = Array.from({ length: item.sets }, () => nowOn);
     });
     navigator.vibrate?.(30);
+    if (nowOn) update(st => { st.session.active = null; });
     if (nowOn && autoFinishIfDone()) return;
     render();
   },
+  'ex-start': (el) => { if (restReady?.itemId !== el.dataset.id) restReady = null; update(st => { st.session.active = el.dataset.id; }); render(); window.scrollTo(0, 0); },
+  'ex-back': () => { update(st => { if (st.session) st.session.active = null; }); render(); },
+  'set-done': (el) => {
+    const id = el.dataset.id;
+    let item, finishedEx = false;
+    update(st => {
+      item = st.workouts.find(w => w.id === st.session.workoutId).items.find(i => i.id === id);
+      const arr = (st.session.checks[id] || []).filter(Boolean);
+      arr.push(true);
+      st.session.checks[id] = arr;
+      if (arr.length >= item.sets) { finishedEx = true; st.session.active = null; }
+    });
+    navigator.vibrate?.(40);
+    if (autoFinishIfDone()) return;
+    restReady = item.rest > 0 && !finishedEx ? { itemId: id, secs: item.rest } : null;
+    rest = null;
+    if (finishedEx) toast('✅ Exercício concluído!');
+    render();
+  },
+  'set-undo': (el) => {
+    update(st => { const arr = (st.session.checks[el.dataset.id] || []).filter(Boolean); arr.pop(); st.session.checks[el.dataset.id] = arr; });
+    restReady = null; rest = null; render();
+  },
+  'rest-row': (el) => {
+    const id = el.dataset.id;
+    if (rest?.itemId === id) { rest = null; render(); return; }
+    const w = findWorkout(S().session.workoutId);
+    const it = w.items.find(i => i.id === id);
+    rest = { end: Date.now() + it.rest * 1000, total: it.rest, itemId: id };
+    restReady = null;
+    navigator.vibrate?.(20);
+    render();
+  },
+  'rest-play': () => { if (restReady) { rest = { end: Date.now() + restReady.secs * 1000, total: restReady.secs, itemId: restReady.itemId }; restReady = null; render(); renderRest(); } },
+  'rest-dismiss': () => { restReady = null; render(); },
   'rest-add': () => { if (rest) { rest.end += 15000; rest.total += 15; renderRest(); } },
-  'rest-skip': () => { rest = null; renderRest(); },
+  'rest-skip': () => { rest = null; renderRest(); if (/^#\/sessao\//.test(location.hash)) render(); },
   'finish': () => finishWorkout(),
   'cancel-session': () => {
     if (!confirm('Descartar o treino em andamento? Nada será salvo no histórico.')) return;
@@ -1711,6 +1969,7 @@ const actions = {
     go(`#/treino/${wid}`);
   },
   'share': (el) => shareWorkouts([el.dataset.id]),
+  'workout-menu': (el) => workoutMenu(el.dataset.id),
   'share-all': () => shareWorkouts(S().workouts.map(w => w.id)),
   'quiz-start': () => startQuiz(),
   'quiz-redo': () => startQuiz(),

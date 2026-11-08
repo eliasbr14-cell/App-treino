@@ -259,18 +259,21 @@ export const PROGRAMS = [
     id: 'iniciante-ab',
     level: 'Iniciante',
     name: 'Iniciante · AB',
-    freq: '3x por semana, alternando A e B (ex.: seg A, qua B, sex A…)',
-    desc: 'Para quem está começando ou voltando. Máquinas na maior parte, para aprender o movimento com segurança. Use uma carga que dê para fazer todas as repetições com boa técnica, deixando 2–3 repetições “sobrando”.',
+    freq: '2 a 4x por semana, alternando A e B (ex.: seg A, qua B, sex A…)',
+    desc: 'Para quem está começando ou voltando. Quase tudo em máquina, com cardio leve no começo (aquecimento) e no fim. A: peito, ombro, tríceps e pernas. B: costas, bíceps, pernas e abdômen. Use uma carga que dê para fazer todas as repetições com boa técnica, deixando 2–3 repetições “sobrando”.',
     workouts: [
-      P('A', 'Superiores', ['peito', 'costas', 'ombros', 'biceps', 'triceps'], [
-        ['supino-maquina', 3, '12', 60], ['puxada-frente', 3, '12', 60], ['desenvolvimento-maquina', 3, '12', 60],
-        ['remada-baixa', 3, '12', 60], ['rosca-direta', 3, '12', 45], ['triceps-pulley', 3, '12', 45],
-        ['prancha', 3, '30s', 45, 'normal', 'Segure 30 segundos'],
+      P('A', 'Peito, Ombro, Tríceps e Pernas', ['peito', 'ombros', 'triceps', 'quadriceps'], [
+        ['esteira', 1, '15 min', 0, 'normal', 'Aquecimento: caminhada em ritmo leve a moderado'],
+        ['supino-maquina', 3, '12-15', 45], ['desenvolvimento-maquina', 3, '12-15', 45], ['elevacao-lateral', 3, '12-15', 45],
+        ['triceps-maquina', 3, '12-15', 45], ['cadeira-extensora', 3, '12-15', 45], ['leg-press', 3, '12-15', 45],
+        ['panturrilha-leg', 3, '12-15', 60], ['adutora', 3, '12-15', 45],
+        ['bike', 1, '15 min', 0],
       ]),
-      P('B', 'Inferiores e abdômen', ['quadriceps', 'posterior', 'gluteos', 'panturrilha', 'abdomen'], [
-        ['leg-press', 3, '12', 75], ['cadeira-extensora', 3, '12', 60], ['mesa-flexora', 3, '12', 60],
-        ['elevacao-pelvica', 3, '12', 60], ['abdutora', 3, '15', 45], ['panturrilha-em-pe', 3, '15', 45],
-        ['abdominal-crunch', 3, '15', 45],
+      P('B', 'Costas, Bíceps, Pernas e Abdômen', ['costas', 'biceps', 'posterior', 'gluteos', 'abdomen'], [
+        ['eliptico', 1, '15 min', 0, 'normal', 'Aquecimento em ritmo leve a moderado'],
+        ['puxada-frente', 3, '12-15', 45], ['remada-maquina', 3, '12-15', 45], ['rosca-alternada', 3, '12-15', 45],
+        ['cadeira-flexora', 3, '12-15', 45], ['abdutora', 3, '12-15', 45], ['abdominal-polia', 3, '12-15', 45],
+        ['esteira', 1, '15 min', 0],
       ]),
     ],
   },
