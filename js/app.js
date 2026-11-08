@@ -50,7 +50,6 @@ function estMinutes(w) {
   }
   return Math.max(5, Math.round(sec / 300) * 5);
 }
-const thumbBadge = (e, it) => `<span class="thumb-wrap">${thumb(e)}${it?.machine ? `<b class="machine-no">${esc(it.machine)}</b>` : ''}</span>`;
 
 function itemSummary(it) {
   const parts = [`${it.sets} × ${esc(it.reps)}`];
@@ -245,7 +244,7 @@ function viewWorkout(id) {
           ${m.id !== 'normal' ? `<span class="tag">${esc(m.name)}</span>` : ''}
           ${it.notes ? `<p class="notes">${esc(it.notes)}</p>` : ''}
         </a>
-        ${e ? `<a href="#/exercicio/${e.id}" aria-label="Ver como faz">${thumbBadge(e, it)}</a>` : ''}
+        ${e ? `<a href="#/exercicio/${e.id}" aria-label="Ver como faz">${thumb(e)}</a>` : ''}
       </div>`;
   }).join('');
 
@@ -351,8 +350,6 @@ function viewItem(wid, iid) {
           <div><label>Descanso (s)</label><input name="rest" type="number" min="0" step="5" value="${it.rest}" inputmode="numeric"></div>
         </div>
         <div class="chips">${[30, 45, 60, 90, 120, 180].map(s => `<button type="button" class="chip" data-rest="${s}">${s}s</button>`).join('')}</div>
-        <label>Nº do aparelho na sua academia <small>(opcional)</small></label>
-        <input name="machine" maxlength="6" inputmode="numeric" placeholder="Ex.: 20" value="${esc(it.machine || '')}">
         <label>Método</label>
         <select name="method">${methodOptions(it.method)}</select>
         <p class="hint" id="mdesc">${esc(m.desc)}</p>
@@ -396,7 +393,6 @@ function mountItem(wid, iid) {
         rest: Math.max(0, +form.rest.value || 0),
         method: form.method.value === '__new' ? 'normal' : form.method.value,
         notes: form.notes.value.trim(),
-        machine: form.machine.value.trim(),
       });
     });
     toast('Salvo ✓');
@@ -1166,7 +1162,7 @@ function viewSessionList(w, ses) {
         <div class="sess2-top">
           <button class="chk ${complete ? 'on' : ''}" data-act="check-all" data-id="${it.id}" aria-label="${complete ? 'Desmarcar' : 'Marcar como feito'}">${complete ? '✓' : ''}</button>
           <button class="sess2-main" data-act="ex-start" data-id="${it.id}">
-            ${cardio ? `<span class="thumb cardio-thumb">❤️</span>` : thumbBadge(e, it)}
+            ${cardio ? `<span class="thumb cardio-thumb">❤️</span>` : thumb(e)}
             <span class="grow">
               <b>${cardio ? 'Cardio – ' : ''}${esc(e?.name || 'Exercício')}</b>
               <small>${cardio ? esc(fmtMinutes(it.reps)) : `${it.sets}x ${esc(fmtReps(it.reps))}`}${!cardio && n && !complete ? ` · ${n}/${it.sets} séries` : ''}</small>
@@ -1218,7 +1214,6 @@ function viewSessionExercise(w, ses, it) {
     actions: `<span class="clock" id="clock">${fmtDuration(Date.now() - ses.start)}</span>`,
     body: `
       ${e?.demo ? `<div class="demo ex-demo"><img src="img/ex/${e.id}-0.jpg" alt=""><img class="b" src="img/ex/${e.id}-1.jpg" alt=""></div>` : ''}
-      ${it.machine ? `<p class="center"><span class="machine-pill">Aparelho nº ${esc(it.machine)}</span></p>` : ''}
       <div class="ex-target">
         <div><b>${esc(fmtReps(it.reps))}</b><small>${/min|s$/.test(it.reps) ? 'tempo' : 'repetições'}</small></div>
         <div><b>${n}/${it.sets}</b><small>séries</small></div>

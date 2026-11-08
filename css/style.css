@@ -419,7 +419,3 @@ label.check input { flex: none; margin-top: 2px; }
 .rr-fill { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: var(--accent); transition: width .5s linear; }
 .finish-bar { position: fixed; left: 16px; right: 16px; bottom: calc(14px + var(--safe-b)); z-index: 6; padding: 18px; border: 0; border-radius: 18px;
   background: var(--accent); color: var(--accent-ink); font-size: 1.1rem; font-weight: 800; box-shadow: 0 10px 30px rgb(0 0 0 / .5); max-width: 608px; margin: 0 auto; }
-.thumb-wrap { position: relative; display: inline-block; flex: none; line-height: 0; }
-.machine-no { position: absolute; top: 4px; left: 4px; min-width: 26px; padding: 3px 6px; border-radius: 8px; background: #3b82f6; color: #fff;
-  font-size: .78rem; line-height: 1.1; text-align: center; font-weight: 800; }
-.machine-pill { display: inline-block; background: #3b82f6; color: #fff; font-weight: 700; padding: 4px 10px; border-radius: 999px; font-size: .85rem; }
