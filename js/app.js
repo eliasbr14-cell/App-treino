@@ -141,6 +141,18 @@ function openMainMenu() {
   });
 }
 
+// ============ tema (automático / claro / escuro) ============
+const THEME_KEY = 'app-treino:theme';
+const getTheme = () => { try { return localStorage.getItem(THEME_KEY) || 'auto'; } catch { return 'auto'; } };
+function applyTheme(t = getTheme()) {
+  const root = document.documentElement;
+  if (t === 'light' || t === 'dark') root.dataset.theme = t; else delete root.dataset.theme;
+  const light = t === 'light' || (t === 'auto' && matchMedia('(prefers-color-scheme: light)').matches);
+  document.getElementById('meta-theme')?.setAttribute('content', light ? '#f3f5f8' : '#0b0f14');
+}
+applyTheme();
+matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => applyTheme());
+
 // ============ layout ============
 function page({ title, back, backAct, actions = '', body, nav = true, fab = '' }) {
   const hash = location.hash || '#/';
@@ -2040,6 +2052,14 @@ function viewConfig() {
         <b>iPhone (Safari):</b> botão compartilhar → “Adicionar à Tela de Início”.</p>
       </div>
       <div class="card">
+        <h3>🎨 Aparência</h3>
+        <p class="hint">No automático, o app fica claro ou escuro igual ao seu celular.</p>
+        <div class="theme-pick">
+          ${[['auto', '📱', 'Automático'], ['light', '☀️', 'Claro'], ['dark', '🌙', 'Escuro']].map(([v, ic, l]) =>
+            `<button class="${getTheme() === v ? 'on' : ''}" data-act="theme" data-v="${v}"><span>${ic}</span>${l}</button>`).join('')}
+        </div>
+      </div>
+      <div class="card">
         <h3>ℹ️ Versão</h3>
         <p class="hint">${APP_NAME} · versão ${APP_VERSION}</p>
         <button class="btn small" data-act="force-update">🔄 Procurar atualização</button>
@@ -2204,6 +2224,7 @@ const actions = {
   'workout-menu': (el) => workoutMenu(el.dataset.id),
   'streak': () => streakSheet(),
   'main-menu': () => openMainMenu(),
+  'theme': (el) => { try { localStorage.setItem(THEME_KEY, el.dataset.v); } catch {} applyTheme(el.dataset.v); render(); },
   'new-menu': () => {
     const sh = sheet(`
       <h2>Novo treino</h2>
