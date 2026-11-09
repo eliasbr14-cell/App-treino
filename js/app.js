@@ -101,11 +101,53 @@ function sheet(html) {
   return wrap;
 }
 
+// ============ ícones (traço, no estilo da barra flutuante) ============
+const ICONS = {
+  dumbbell: '<path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/>',
+  book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/><path d="M9 7.5h7M9 11h5"/>',
+  flask: '<path d="M9 3h6M10 3v6.5L4.8 18.6A1.6 1.6 0 0 0 6.2 21h11.6a1.6 1.6 0 0 0 1.4-2.4L14 9.5V3"/><path d="M7.5 15h9"/>',
+  calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="m9 15 2 2 4-4"/>',
+  menu: '<path d="M4 7h16M4 12h16M4 17h16"/>',
+  user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+  settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
+  doc: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>',
+  shield: '<path d="M12 3 4.5 6v6c0 4.5 3.2 7.8 7.5 9 4.3-1.2 7.5-4.5 7.5-9V6z"/><path d="m9 12 2 2 4-4"/>',
+  logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H3"/>',
+};
+const icon = (name, size = 22) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ''}</svg>`;
+
+function openMainMenu() {
+  const u = cloud.currentUser();
+  const at = cloud.myUsername?.();
+  const sh = sheet(`
+    <div class="menu-head">
+      <span class="avatar">${esc((cloud.myName?.() || '?').slice(0, 1).toUpperCase())}</span>
+      <div><h2 style="margin:0">${esc(cloud.myName?.() || 'Minha conta')}</h2><small class="hint">${at ? '@' + esc(at) : u ? '' : 'sem conta'}</small></div>
+    </div>
+    <button class="menu-item" data-mm="#/conta"><span>${icon('user')}</span>Minha conta</button>
+    <button class="menu-item" data-mm="#/metodos"><span>${icon('flask')}</span>Métodos de treino</button>
+    <button class="menu-item" data-mm="#/config"><span>${icon('settings')}</span>Configurações e backup</button>
+    <button class="menu-item" data-mm="terms"><span>${icon('doc')}</span>Termos de uso e privacidade</button>
+    <button class="menu-item" data-mm="#/admin" id="mm-admin" hidden><span>${icon('shield')}</span>Painel de testes</button>
+    ${u ? `<button class="menu-item danger" data-mm="logout"><span>${icon('logout')}</span>Sair</button>` : ''}`);
+  cloud.amIAdmin?.().then(v => { const b = sh.querySelector('#mm-admin'); if (b && v) b.hidden = false; }).catch(() => {});
+  sh.addEventListener('click', async (e) => {
+    const a = e.target.closest('[data-mm]')?.dataset.mm;
+    if (!a) return;
+    sh.close();
+    if (a.startsWith('#')) go(a);
+    if (a === 'terms') setTimeout(openTerms, 260);
+    if (a === 'logout' && confirm('Sair da conta? Seus treinos continuam salvos na nuvem.')) { if (await cloud.signOut()) toast('Você saiu'); }
+  });
+}
+
 // ============ layout ============
 function page({ title, back, backAct, actions = '', body, nav = true, fab = '' }) {
   const hash = location.hash || '#/';
-  const tab = (h, icon, label) =>
-    `<a href="${h}" class="${hash === h || (h !== '#/' && hash.startsWith(h)) ? 'active' : ''}"><span>${icon}</span>${label}</a>`;
+  const tab = (h, ic, label) => {
+    const on = hash === h || (h !== '#/' && hash.startsWith(h)) || (h === '#/' && /^#\/(treino|programa)/.test(hash));
+    return `<a href="${h}" class="${on ? 'active' : ''}" aria-label="${label}">${icon(ic)}<span>${label}</span></a>`;
+  };
   return `
     <header class="top">
       ${back ? `<a class="icon-btn" href="${back}" aria-label="Voltar">←</a>` : backAct ? `<button class="icon-btn" data-act="${backAct}" aria-label="Voltar">←</button>` : ''}
@@ -115,10 +157,9 @@ function page({ title, back, backAct, actions = '', body, nav = true, fab = '' }
     <main class="${nav ? 'with-nav' : ''}">${body}</main>
     ${fab}
     ${nav ? `<nav class="bottom">
-      ${tab('#/', '🏋️', 'Treinos')}
-      ${tab('#/exercicios', '📚', 'Exercícios')}
-      ${tab('#/metodos', '🧪', 'Métodos')}
-      ${tab('#/historico', '📅', 'Histórico')}
+      ${tab('#/', 'dumbbell', 'Treinos')}
+      ${tab('#/exercicios', 'book', 'Exercícios')}
+      ${tab('#/historico', 'calendar', 'Histórico')}
     </nav>` : ''}`;
 }
 
@@ -157,8 +198,7 @@ function viewHome() {
   return page({
     title: `Meus treinos`,
     actions: `<button class="streak-chip ${streakInfo().count ? '' : 'off'} ${streakInfo().atRisk && !streakInfo().trainedToday ? 'risk' : ''}" data-act="streak" aria-label="Ofensiva">🔥 ${streakInfo().count}</button>
-              <a class="icon-btn" href="#/conta" aria-label="Conta">${cloud.currentUser() ? '☁️' : '👤'}</a>
-              <a class="icon-btn" href="#/config" aria-label="Configurações">⚙️</a>`,
+              <button class="icon-btn menu-btn" data-act="main-menu" aria-label="Menu">${icon('menu', 26)}</button>`,
     body: list,
     fab: workouts.length ? `<button class="fab" data-act="new-menu">+ Novo treino</button>` : '',
   });
@@ -2163,6 +2203,7 @@ const actions = {
   'share': (el) => shareWorkouts([el.dataset.id]),
   'workout-menu': (el) => workoutMenu(el.dataset.id),
   'streak': () => streakSheet(),
+  'main-menu': () => openMainMenu(),
   'new-menu': () => {
     const sh = sheet(`
       <h2>Novo treino</h2>
