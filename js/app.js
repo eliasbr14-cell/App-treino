@@ -155,8 +155,9 @@ function viewHome() {
     </div>`;
 
   return page({
-    title: 'Meus treinos',
-    actions: `<a class="icon-btn" href="#/conta" aria-label="Conta">${cloud.currentUser() ? '☁️' : '👤'}</a>
+    title: `Meus treinos`,
+    actions: `<button class="streak-chip ${streakInfo().count ? '' : 'off'} ${streakInfo().atRisk && !streakInfo().trainedToday ? 'risk' : ''}" data-act="streak" aria-label="Ofensiva">🔥 ${streakInfo().count}</button>
+              <a class="icon-btn" href="#/conta" aria-label="Conta">${cloud.currentUser() ? '☁️' : '👤'}</a>
               <a class="icon-btn" href="#/config" aria-label="Configurações">⚙️</a>`,
     body: list,
     fab: workouts.length ? `<button class="fab" data-act="new-menu">+ Novo treino</button>` : '',
@@ -1349,12 +1350,82 @@ function autoFinishIfDone() {
   return true;
 }
 
+// ============ ofensiva (sequência de dias treinados) ============
+// Conta DIAS com treino concluído (2 treinos no mesmo dia = 1 dia).
+// Pode descansar até 2 dias seguidos; no 3º dia sem treinar a ofensiva acaba.
+const MAX_REST = 2;
+const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const keyToDate = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const daysBetween = (a, b) => Math.round((keyToDate(b) - keyToDate(a)) / 864e5);
+
+function streakInfo() {
+  const days = [...new Set(S().history.map(h => dayKey(h.end)))].sort();
+  const today = dayKey(Date.now());
+  // todas as sequências (para o recorde)
+  let best = 0, run = 0;
+  days.forEach((d, i) => { run = i && daysBetween(days[i - 1], d) <= MAX_REST + 1 ? run + 1 : 1; best = Math.max(best, run); });
+  const last = days[days.length - 1];
+  const since = last ? daysBetween(last, today) : Infinity;
+  let count = 0; // ainda viva se o último treino foi há no máximo MAX_REST dias de descanso (hoje ainda dá pra treinar)
+  if (last && since <= MAX_REST + 1) {
+    count = 1;
+    for (let i = days.length - 1; i > 0 && daysBetween(days[i - 1], days[i]) <= MAX_REST + 1; i--) count++;
+  }
+  // a ofensiva só continua se treinar hoje quando já foram MAX_REST dias de descanso
+  const atRisk = count > 0 && since === MAX_REST + 1;
+  const trainedToday = last === today;
+  // semana atual (seg a dom)
+  const now = new Date(); const dow = (now.getDay() + 6) % 7;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dow);
+  const daySet = new Set(days);
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i);
+    const k = dayKey(d);
+    return { label: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'][i], trained: daySet.has(k), today: k === today, future: k > today };
+  });
+  return { count, best, atRisk, trainedToday, week, totalDays: days.length };
+}
+
+const FLAME = (lit = true) => `
+  <svg class="flame ${lit ? '' : 'off'}" viewBox="0 0 120 140" aria-hidden="true">
+    <defs><linearGradient id="fg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fbbf24"/><stop offset=".55" stop-color="#f97316"/><stop offset="1" stop-color="#ef4444"/></linearGradient></defs>
+    <ellipse cx="60" cy="128" rx="34" ry="8" fill="rgba(0,0,0,.35)"/>
+    <path d="M60 6c6 22 34 34 34 70a34 34 0 0 1-68 0c0-16 8-26 16-34 1 12 6 18 12 20-4-22 2-40 6-56z" fill="url(#fg)"/>
+    <path d="M60 64c4 10 16 15 16 30a16 16 0 0 1-32 0c0-10 8-15 16-30z" fill="#fde68a"/>
+  </svg>`;
+
+const STREAK_MSG = (n) => n >= 30 ? 'Isso já virou estilo de vida. Monstro! 🏆' : n >= 14 ? 'Duas semanas firme! Ninguém te segura.' : n >= 7 ? 'Uma semana de foco! O shape agradece.' : n >= 3 ? 'Tá pegando ritmo! Continua assim.' : n === 1 ? 'Primeiro dia da ofensiva! Bora manter?' : 'Mais um dia pra conta! Tá pago! 💪';
+
+function streakSheet({ celebrate = false } = {}) {
+  const st = streakInfo();
+  const name = cloud.myName?.() || '';
+  const text = `🔥 ${st.count} ${st.count === 1 ? 'dia' : 'dias'} de ofensiva no ${APP_NAME}! Tá pago! 💪`;
+  const sh = sheet(`
+    <div class="streak ${celebrate ? 'pop' : ''}">
+      ${FLAME(st.count > 0)}
+      <div class="streak-n">${st.count}</div>
+      <div class="streak-label">${st.count === 1 ? 'dia' : 'dias'} de ofensiva</div>
+      <div class="week">${st.week.map(d => `
+        <div class="wd ${d.today ? 'today' : ''}"><small>${d.label}</small>
+          <i class="${d.trained ? 'on' : d.future ? 'future' : ''}">${d.trained ? '✓' : ''}</i></div>`).join('')}</div>
+      <p class="streak-msg">${st.count ? (st.atRisk && !st.trainedToday ? '⚠️ Treine hoje pra não perder a ofensiva!' : STREAK_MSG(st.count)) : 'Conclua um treino pra acender a ofensiva!'}</p>
+      <p class="hint">Conta 1 por dia treinado. Pode descansar até ${MAX_REST} dias seguidos sem perder. Recorde: ${st.best} ${st.best === 1 ? 'dia' : 'dias'}.</p>
+      <div class="streak-actions">
+        <a class="btn share-btn" href="https://wa.me/?text=${encodeURIComponent(text)}" target="_blank" rel="noopener" aria-label="Compartilhar">📤</a>
+        <button class="btn primary grow" data-close>${celebrate ? `TÁ PAGO${name ? ', ' + esc(name.split(' ')[0].toUpperCase()) : ''}!` : 'Fechar'}</button>
+      </div>
+    </div>`);
+  if (celebrate) navigator.vibrate?.([60, 40, 60, 40, 160]);
+  return sh;
+}
+
 function finishWorkout(auto = false) {
   const ses = S().session;
   if (!ses) return;
   const w = findWorkout(ses.workoutId);
   const { done, total } = sessionProgress();
   if (!auto && done < total && !confirm(`Você fez ${done} de ${total} séries. Finalizar mesmo assim?`)) return;
+  const firstToday = !streakInfo().trainedToday;
   update(st => {
     const wk = st.workouts.find(x => x.id === w.id);
     wk.items.forEach(it => { if (ses.loads[it.id] !== undefined) it.load = ses.loads[it.id]; });
@@ -1366,14 +1437,21 @@ function finishWorkout(auto = false) {
   const next = nextWorkout();
   const mins = Math.round((Date.now() - ses.start) / 60000);
   navigator.vibrate?.([80, 60, 80, 60, 200]);
-  sheet(`
+  const showDone = () => sheet(`
     <div class="done-sheet">
       <div class="big">🎉</div>
       <h2>Treino ${esc(w.letter)} concluído!</h2>
       <p class="hint">${done} de ${total} séries · ${mins} min</p>
       ${next && next.id !== w.id ? `<div class="card next-card">${badge(next, 'lg')}<div><small>Próximo treino</small><h3>${esc(next.name)}</h3></div></div>` : ''}
+      ${firstToday ? '' : `<p class="hint">🔥 Hoje já contou na ofensiva (${streakInfo().count} ${streakInfo().count === 1 ? 'dia' : 'dias'}). Treino extra é bônus!</p>`}
       <div class="stack"><button class="btn primary" data-close>Show! 💪</button><a class="btn" href="#/historico" data-close>Ver histórico</a></div>
     </div>`);
+  const sh = showDone();
+  // primeiro treino do dia: depois do resumo, a tela da ofensiva
+  if (firstToday) {
+    const obs = new MutationObserver(() => { if (!document.body.contains(sh)) { obs.disconnect(); setTimeout(() => streakSheet({ celebrate: true }), 150); } });
+    obs.observe(document.body, { childList: true });
+  }
 }
 
 // ============ histórico / config ============
@@ -1385,10 +1463,15 @@ function viewHistory() {
   return page({
     title: 'Histórico',
     body: `
+      <button class="card streak-card" data-act="streak">
+        ${FLAME(streakInfo().count > 0)}
+        <div><b>${streakInfo().count}</b><small>${streakInfo().count === 1 ? 'dia' : 'dias'} de ofensiva · recorde ${streakInfo().best}</small></div>
+      </button>
       <div class="stats">
-        <div class="card"><b>${h.length}</b><small>treinos feitos</small></div>
-        <div class="card"><b>${week}</b><small>nos últimos 7 dias</small></div>
+        <div class="card"><b>${streakInfo().totalDays}</b><small>dias treinados</small></div>
+        <div class="card"><b>${new Set(h.filter(x => x.end > weekAgo).map(x => dayKey(x.end))).size}</b><small>dias nos últimos 7</small></div>
       </div>
+      <p class="hint center">${h.length} treinos concluídos no total</p>
       ${h.length ? h.map(x => `
         <div class="card hist">
           ${badge(x)}
@@ -1986,6 +2069,7 @@ const actions = {
   },
   'share': (el) => shareWorkouts([el.dataset.id]),
   'workout-menu': (el) => workoutMenu(el.dataset.id),
+  'streak': () => streakSheet(),
   'new-menu': () => {
     const sh = sheet(`
       <h2>Novo treino</h2>

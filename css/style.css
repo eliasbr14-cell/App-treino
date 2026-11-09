@@ -434,3 +434,34 @@ label.check input { flex: none; margin-top: 2px; }
 .pill-btn.ok span { background: var(--accent); color: var(--accent-ink); }
 .pill-btn:disabled { opacity: .35; }
 .pill-btn:active:not(:disabled) { transform: scale(.97); }
+
+/* ===== ofensiva ===== */
+.streak { text-align: center; padding: 6px 4px 0; }
+.streak .flame { width: 120px; height: 140px; display: block; margin: 0 auto; }
+.flame.off { filter: grayscale(1) opacity(.45); }
+.streak.pop .flame { animation: flamePop .7s cubic-bezier(.2, 1.6, .4, 1) both; }
+@keyframes flamePop { from { transform: scale(.3) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.streak-n { font-size: 4.6rem; font-weight: 900; line-height: 1; margin-top: 4px;
+  background: linear-gradient(180deg, #fbbf24, #ef4444); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.streak.pop .streak-n { animation: flamePop .7s .15s cubic-bezier(.2, 1.6, .4, 1) both; }
+.streak-label { font-size: 1.4rem; font-weight: 800; color: #f97316; margin-bottom: 18px; }
+.week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 14px; }
+.wd small { display: block; color: var(--muted); font-weight: 700; margin-bottom: 6px; }
+.wd.today small { color: #f97316; }
+.wd i { display: grid; place-items: center; width: 36px; height: 36px; margin: 0 auto; border-radius: 50%; background: var(--card2); font-style: normal;
+  font-weight: 900; color: #fff; }
+.wd i.on { background: linear-gradient(180deg, #fb923c, #ef4444); box-shadow: 0 4px 14px rgb(239 68 68 / .35); }
+.wd.today i:not(.on) { border: 2px dashed #f97316; }
+.wd i.future { opacity: .35; }
+.streak-msg { font-size: 1.05rem; font-weight: 600; margin: 6px 0; }
+.streak-actions { display: flex; gap: 10px; margin-top: 16px; }
+.streak-actions .share-btn { width: 56px; flex: none; font-size: 1.2rem; }
+.streak-actions .btn.primary { font-weight: 900; letter-spacing: .04em; }
+.streak-chip { border: 1px solid color-mix(in srgb, #f97316 50%, var(--line)); background: color-mix(in srgb, #f97316 14%, transparent); color: #fb923c;
+  font-weight: 800; border-radius: 999px; padding: 6px 12px; font-size: .95rem; }
+.streak-chip.off { filter: grayscale(1); opacity: .6; }
+.streak-chip.risk { animation: pulse 1.4s ease-in-out infinite; }
+.streak-card { display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; color: var(--text); }
+.streak-card .flame { width: 54px; height: 64px; flex: none; }
+.streak-card b { display: block; font-size: 2rem; color: #f97316; line-height: 1; }
+.streak-card small { color: var(--muted); }

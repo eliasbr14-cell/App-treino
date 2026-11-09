@@ -3,4 +3,4 @@
 export const APP_NAME = 'Tá Pago';
 
 // aparece em Configurações; aumente a cada atualização publicada
-export const APP_VERSION = '25';
+export const APP_VERSION = '26';
