@@ -425,3 +425,12 @@ label.check input { flex: none; margin-top: 2px; }
 [data-press].lifted { transform: scale(1.03); box-shadow: 0 14px 34px rgb(0 0 0 / .55); border-color: var(--accent); z-index: 2; position: relative; }
 .pos-n { width: 22px; text-align: center; color: var(--muted); font-size: .85rem; font-weight: 700; flex: none; }
 [data-press] a, [data-press] img { -webkit-user-drag: none; user-drag: none; }
+
+.ex-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+.pill-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px 10px; border-radius: 16px;
+  border: 1px solid var(--line); background: var(--card); color: var(--text); font-weight: 700; font-size: .95rem; }
+.pill-btn span { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--card2); font-size: .9rem; }
+.pill-btn.ok { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent); }
+.pill-btn.ok span { background: var(--accent); color: var(--accent-ink); }
+.pill-btn:disabled { opacity: .35; }
+.pill-btn:active:not(:disabled) { transform: scale(.97); }

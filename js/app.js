@@ -1244,9 +1244,9 @@ function viewSessionExercise(w, ses, it) {
         <button class="btn small" data-act="swap" data-id="${it.id}" data-w="${w.id}">🔄 Trocar</button>
         ${e ? `<a class="btn small" href="#/exercicio/${e.id}">📋 Como faz</a>` : ''}
       </div>
-      <div class="row between ex-links">
-        <button class="link" data-act="set-undo" data-id="${it.id}" ${n ? '' : 'hidden'}>↩ Desfazer última série</button>
-        <button class="link" data-act="check-all" data-id="${it.id}">${complete ? 'Desmarcar exercício' : 'Marcar todas como feitas'}</button>
+      <div class="ex-actions">
+        <button class="pill-btn" data-act="set-undo" data-id="${it.id}" ${n ? '' : 'disabled'}><span>↩</span>Desfazer série</button>
+        <button class="pill-btn ${complete ? '' : 'ok'}" data-act="check-all" data-id="${it.id}"><span>${complete ? '✕' : '✓'}</span>${complete ? 'Desmarcar' : 'Concluir'}</button>
       </div>`,
   });
 }
@@ -1952,8 +1952,9 @@ const actions = {
     });
     navigator.vibrate?.(40);
     if (autoFinishIfDone()) return;
-    restReady = item.rest > 0 && !finishedEx ? { itemId: id, secs: item.rest } : null;
-    rest = null;
+    // terminou a série: o descanso já começa contando, sem precisar tocar no play
+    restReady = null;
+    rest = item.rest > 0 && !finishedEx ? { end: Date.now() + item.rest * 1000, total: item.rest, itemId: id } : null;
     if (finishedEx) toast('✅ Exercício concluído!');
     render();
   },
