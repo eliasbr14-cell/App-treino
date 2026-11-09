@@ -1419,6 +1419,113 @@ function streakSheet({ celebrate = false } = {}) {
   return sh;
 }
 
+// ============ comemoração ao terminar o treino ============
+function celebrationSheet({ w, done, total, mins, next, firstToday }) {
+  const st = streakInfo();
+  const first = (cloud.myName?.() || '').split(' ')[0];
+  const sh = sheet(`
+    <div class="streak ${firstToday ? 'pop' : ''}">
+      ${FLAME(true)}
+      <div class="streak-n">${st.count}</div>
+      <div class="streak-label">${st.count === 1 ? 'dia' : 'dias'} de ofensiva</div>
+      <div class="week">${st.week.map(d => `
+        <div class="wd ${d.today ? 'today' : ''}"><small>${d.label}</small>
+          <i class="${d.trained ? 'on' : d.future ? 'future' : ''}">${d.trained ? '✓' : ''}</i></div>`).join('')}</div>
+      <p class="streak-msg">${firstToday ? STREAK_MSG(st.count) : 'Hoje já tinha contado na ofensiva. Treino extra é bônus! 💪'}</p>
+      <div class="card done-sum">
+        ${badge(w)}<div class="grow"><b>Treino ${esc(w.letter)} concluído</b><small>${esc(w.name)} · ${done}/${total} séries · ${mins} min</small></div>
+      </div>
+      ${next && next.id !== w.id ? `<p class="hint">Próximo: ${badge(next)} ${esc(next.name)}</p>` : ''}
+      <div class="share-grid">
+        <button class="share-tile" data-cel="photo"><span>📸</span>Foto do tá pago</button>
+        <button class="share-tile" data-cel="text"><span>📤</span>Compartilhar ofensiva</button>
+        <button class="share-tile soon" data-cel="feed"><span>📰</span>Postar no feed<em>em breve</em></button>
+      </div>
+      <button class="btn primary block cel-ok" data-close>TÁ PAGO${first ? ', ' + esc(first.toUpperCase()) : ''}!</button>
+      <input type="file" accept="image/*" hidden id="cel-photo">
+    </div>`);
+  if (firstToday) navigator.vibrate?.([60, 40, 60, 40, 160]);
+  const summary = { letter: w.letter, name: w.name, done, total, mins, streak: st.count };
+  const fileInput = sh.querySelector('#cel-photo');
+  sh.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-cel]')?.dataset.cel;
+    if (a === 'photo') fileInput.click();
+    if (a === 'text') shareText(`🔥 ${st.count} ${st.count === 1 ? 'dia' : 'dias'} de ofensiva no ${APP_NAME}! Hoje: treino ${w.letter} – ${w.name} (${done} séries, ${mins} min). Tá pago! 💪`);
+    if (a === 'feed') toast('O feed do Tá Pago está chegando! 📰');
+  });
+  fileInput.addEventListener('change', async () => {
+    const f = fileInput.files[0];
+    if (!f) return;
+    try { openPhotoCard(await makeShareCard(f, summary)); }
+    catch { alert('Não consegui abrir essa foto. Tente outra.'); }
+  });
+}
+
+function shareText(text) {
+  if (navigator.share) navigator.share({ text }).catch(() => {});
+  else window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+}
+
+// monta a imagem pra compartilhar: foto + ofensiva + treino + marca do app (1080x1350)
+async function makeShareCard(file, sum) {
+  const url = URL.createObjectURL(file);
+  const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+  const W = 1080, H = 1350, c = document.createElement('canvas');
+  c.width = W; c.height = H;
+  const g = c.getContext('2d');
+  const sc = Math.max(W / img.width, H / img.height);
+  g.drawImage(img, (W - img.width * sc) / 2, (H - img.height * sc) / 2, img.width * sc, img.height * sc);
+  URL.revokeObjectURL(url);
+  const grad = g.createLinearGradient(0, H * 0.45, 0, H);
+  grad.addColorStop(0, 'rgba(0,0,0,0)'); grad.addColorStop(1, 'rgba(0,0,0,.85)');
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  const top = g.createLinearGradient(0, 0, 0, 220);
+  top.addColorStop(0, 'rgba(0,0,0,.55)'); top.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = top; g.fillRect(0, 0, W, 220);
+  const font = (w, px) => `${w} ${px}px system-ui, -apple-system, "Segoe UI", Roboto, sans-serif`;
+  // marca
+  g.fillStyle = '#22c55e'; g.beginPath(); g.roundRect(56, 56, 84, 84, 22); g.fill();
+  g.fillStyle = '#0b0f14'; g.font = font(900, 54); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('✓', 98, 100);
+  g.textAlign = 'left'; g.fillStyle = '#fff'; g.font = font(800, 52); g.fillText(APP_NAME, 160, 100);
+  // ofensiva
+  g.textBaseline = 'alphabetic';
+  g.font = font(900, 150);
+  const fire = '🔥';
+  g.fillText(fire, 56, H - 300);
+  const fw = g.measureText(fire).width;
+  const ng = g.createLinearGradient(0, H - 430, 0, H - 300);
+  ng.addColorStop(0, '#fbbf24'); ng.addColorStop(1, '#ef4444');
+  g.fillStyle = ng; g.fillText(String(sum.streak), 56 + fw + 16, H - 300);
+  g.fillStyle = '#fb923c'; g.font = font(800, 56);
+  g.fillText(`${sum.streak === 1 ? 'dia' : 'dias'} de ofensiva`, 60, H - 225);
+  // treino do dia
+  g.fillStyle = '#fff'; g.font = font(700, 46);
+  g.fillText(`Treino ${sum.letter} · ${sum.name}`.slice(0, 40), 60, H - 140);
+  g.fillStyle = 'rgba(255,255,255,.75)'; g.font = font(500, 38);
+  g.fillText(`${sum.done} séries · ${sum.mins} min · tá pago! 💪`, 60, H - 82);
+  return await new Promise(res => c.toBlob(res, 'image/jpeg', 0.9));
+}
+
+function openPhotoCard(blob) {
+  const file = new File([blob], 'ta-pago.jpg', { type: 'image/jpeg' });
+  const url = URL.createObjectURL(blob);
+  const canShareFile = navigator.canShare?.({ files: [file] });
+  const sh = sheet(`
+    <h2>📸 Seu tá pago</h2>
+    <img class="card-preview" src="${url}" alt="Prévia da imagem">
+    <div class="stack">
+      ${canShareFile ? `<button class="btn primary" data-pc="share">📤 Compartilhar (WhatsApp, Instagram…)</button>` : ''}
+      <a class="btn ${canShareFile ? '' : 'primary'}" href="${url}" download="ta-pago.jpg">💾 Salvar na galeria</a>
+      <button class="btn soon-btn" data-pc="feed">📰 Postar no feed do ${APP_NAME} <em>em breve</em></button>
+      <button class="btn" data-close>Fechar</button>
+    </div>`);
+  sh.addEventListener('click', (e) => {
+    const a = e.target.closest('[data-pc]')?.dataset.pc;
+    if (a === 'share') navigator.share({ files: [file], text: `Tá pago! 🔥 #${APP_NAME.replace(/\s/g, '')}` }).catch(() => {});
+    if (a === 'feed') toast('O feed do Tá Pago está chegando! 📰');
+  });
+}
+
 function finishWorkout(auto = false) {
   const ses = S().session;
   if (!ses) return;
@@ -1435,24 +1542,10 @@ function finishWorkout(auto = false) {
   rest = null; restReady = null; stopSessionUi(); renderRest();
   go('#/');
   const next = nextWorkout();
-  const mins = Math.round((Date.now() - ses.start) / 60000);
-  navigator.vibrate?.([80, 60, 80, 60, 200]);
-  const showDone = () => sheet(`
-    <div class="done-sheet">
-      <div class="big">🎉</div>
-      <h2>Treino ${esc(w.letter)} concluído!</h2>
-      <p class="hint">${done} de ${total} séries · ${mins} min</p>
-      ${next && next.id !== w.id ? `<div class="card next-card">${badge(next, 'lg')}<div><small>Próximo treino</small><h3>${esc(next.name)}</h3></div></div>` : ''}
-      ${firstToday ? '' : `<p class="hint">🔥 Hoje já contou na ofensiva (${streakInfo().count} ${streakInfo().count === 1 ? 'dia' : 'dias'}). Treino extra é bônus!</p>`}
-      <div class="stack"><button class="btn primary" data-close>Show! 💪</button><a class="btn" href="#/historico" data-close>Ver histórico</a></div>
-    </div>`);
-  const sh = showDone();
-  // primeiro treino do dia: depois do resumo, a tela da ofensiva
-  if (firstToday) {
-    const obs = new MutationObserver(() => { if (!document.body.contains(sh)) { obs.disconnect(); setTimeout(() => streakSheet({ celebrate: true }), 150); } });
-    obs.observe(document.body, { childList: true });
-  }
+  const mins = Math.max(1, Math.round((Date.now() - ses.start) / 60000));
+  celebrationSheet({ w, done, total, mins, next, firstToday });
 }
+
 
 // ============ histórico / config ============
 function viewHistory() {

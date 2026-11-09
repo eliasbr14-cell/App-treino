@@ -465,3 +465,17 @@ label.check input { flex: none; margin-top: 2px; }
 .streak-card .flame { width: 54px; height: 64px; flex: none; }
 .streak-card b { display: block; font-size: 2rem; color: #f97316; line-height: 1; }
 .streak-card small { color: var(--muted); }
+
+.done-sum { display: flex; align-items: center; gap: 12px; text-align: left; margin: 14px 0 6px; }
+.done-sum b { display: block; }
+.done-sum small { color: var(--muted); }
+.share-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0; }
+.share-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 6px; border-radius: 16px; border: 1px solid var(--line);
+  background: var(--card); color: var(--text); font-weight: 700; font-size: .82rem; position: relative; }
+.share-tile span { font-size: 1.6rem; }
+.share-tile.soon { opacity: .6; }
+.share-tile em, .soon-btn em { font-style: normal; font-size: .65rem; font-weight: 800; color: #0b0f14; background: #fbbf24; border-radius: 999px; padding: 2px 7px; }
+.share-tile em { position: absolute; top: -8px; right: 6px; }
+.soon-btn { opacity: .7; }
+.card-preview { width: 100%; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--line); }
+.cel-ok { font-weight: 900; letter-spacing: .04em; margin-top: 4px; }
